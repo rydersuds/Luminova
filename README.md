@@ -22,6 +22,7 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 
 ## How booking works
 
+- Every "Book" button opens a booking panel that slides in over the current page, so visitors never lose their place. "Book this" on a service card opens it with that service already selected. The panel closes with ×, Escape or a click outside it.
 - Clients pick a service and session length, then a date and time, then enter their details. They get a confirmation number and an "Add to calendar" file.
 - Available times come from the opening hours in `config.js`, minus existing bookings (with a 15-minute turnover buffer) and any blocked time. Two people can't book the same slot.
 - In the admin page (`/admin`) the owner can see upcoming appointments, cancel them, and block off time for holidays, breaks or phone bookings.

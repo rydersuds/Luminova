@@ -38,7 +38,7 @@ for (let i = 1; days.length < 14 && i < 30; i++) {
 }
 
 // ---------- Markup ----------
-const radio = (name, id, checked) => `<input class="d-state" type="radio" name="${name}" id="${id}"${checked ? ' checked' : ''}>`;
+const radio = (name, id, checked, cls = '') => `<input class="d-state${cls ? ' ' + cls : ''}" type="radio" name="${name}" id="${id}"${checked ? ' checked' : ''}>`;
 const btn = (forId, cls, text) => `<label class="btn ${cls}" for="${forId}">${text}</label>`;
 
 const summary = `
@@ -51,6 +51,7 @@ const summary = `
 
 const booker = `<div class="booker booker-demo">
           ${[1, 2, 3, 4].map((n) => radio('d-step', `d-step${n}`, n === 1)).join('')}
+          ${radio('d-svc', 'd-svc-none', true)}${radio('d-svc', 'd-svc-any', false, 'd-open')}
           <p class="d-note">Preview mode: try the full booking flow. Nothing is saved and the open times are examples.</p>
           <ol class="bk-progress" aria-label="Booking steps">
             <li data-progress="1"><span>1</span>Service</li>
@@ -61,7 +62,7 @@ const booker = `<div class="booker booker-demo">
           <div class="bk-step d-p d-p1">
             <p class="bk-label">Choose a service</p>
             <div class="bk-services">
-              ${config.services.map((s) => `<span class="bk-option">${radio('d-svc', `d-svc-${s.id}`)}<label for="d-svc-${s.id}">${esc(s.name)}</label></span>`).join('\n              ')}
+              ${config.services.map((s) => `<span class="bk-option">${radio('d-svc', `d-svc-${s.id}`, false, 'd-open d-svc-real')}<label for="d-svc-${s.id}">${esc(s.name)}</label></span>`).join('\n              ')}
             </div>
             <div class="bk-durations-wrap d-durs">
               <p class="bk-label">Session length</p>
@@ -149,7 +150,7 @@ label.service-book{cursor:pointer}
 ${B} .d-slots-label{margin-top:22px}
 ${B} .d-state{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
 ${B} .d-p,${B} .d-slots,${B} .d-durs,${B} .d-dur,${B} [class*="d-sum-"]{display:none}
-${B}:has([name="d-svc"]:checked) .d-durs{display:block}
+${B}:has(.d-svc-real:checked) .d-durs{display:block}
 ${B} .d-next{opacity:.45;pointer-events:none}
 ${B}:not(:has(.d-p3 :invalid)) .d-confirm{opacity:1;pointer-events:auto}
 ${B}:not(:has(.d-p3 :invalid)) .d-fill-hint{display:none}
@@ -167,6 +168,19 @@ ${B} .bk-fields input:user-invalid{border-color:#b44}
 ${B} .d-p4 .d-sum{display:inline}
 ${B} .bk-summary .d-sum,${B} .d-p4 .d-sum{display:inline}
 ${rules.join('\n')}
+/* Panel opens while any opener radio (generic or a service) is checked; closing checks d-svc-none. */
+body:has(.d-open:checked) .bk-modal{display:block}
+html:has(.d-open:checked){overflow:hidden}
+html:has(.d-open:checked) .mobile-book{display:none}
+${B}:has(#d-svc-any:checked) .d-p{display:none!important}
+${B}:has(#d-svc-any:checked) .d-p1{display:block!important}
+${B}:has(#d-svc-any:checked) [data-progress]{color:#9aa3b5!important}
+${B}:has(#d-svc-any:checked) [data-progress] span{background:none!important;border-color:currentColor!important;color:inherit!important}
+${B}:has(#d-svc-any:checked) [data-progress="1"]{color:var(--navy)!important}
+${B}:has(#d-svc-any:checked) [data-progress="1"] span{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important}
+label.bk-backdrop,label.bk-close{cursor:pointer}
+.nav label{color:var(--navy);font-weight:700;font-size:.98rem;padding:6px 0;cursor:pointer}
+@media (max-width:820px){.nav label{padding:14px 0;border-bottom:1px solid var(--line);font-size:1.05rem}}
 `;
 
 // ---------- Assemble ----------
@@ -181,8 +195,12 @@ html = html
   .replace('<link rel="stylesheet" href="styles.css">', () => `<style>\n${read('styles.css')}\n${css}</style>`)
   .replace('<script src="script.js"></script>', () => `<script>\n${inline(read('script.js'))}\n</script>`)
   .replace('<script src="booking.js"></script>', '')
-  // "Book this" preselects the service in the demo form.
-  .replace(/<a class="service-book" href="#book" data-book-service="([\w-]+)">Book this<\/a>/g, '<label class="service-book" for="d-svc-$1">Book this</label>');
+  // Links become labels for the demo's radio buttons, so the panel opens and closes without JavaScript.
+  // "Book this" opens the panel with that service selected.
+  .replace(/<a class="service-book" href="#booking" data-book-service="([\w-]+)">Book this<\/a>/g, '<label class="service-book" for="d-svc-$1">Book this</label>')
+  .replace(/<a ([^>]*?)href="#booking"([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-any"$2>$3</label>')
+  .replace(/<a ([^>]*?)href="#" data-close-booking([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-none"$2>$3</label>');
+if (/href="#booking"|data-close-booking/.test(html)) throw new Error('Unconverted booking link left in preview');
 
 const out = path.join(__dirname, '..', 'dist', 'preview.html');
 fs.mkdirSync(path.dirname(out), { recursive: true });

@@ -263,6 +263,70 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .bk-ref { font-size: .95rem; color: var(--ink-soft); }
 .bk-ref strong { font-family: var(--serif); font-size: 1.4rem; color: var(--navy); letter-spacing: .08em; margin-left: .3em; }
 
+/* Book-online band */
+.section-book { background: var(--cream); padding: clamp(56px, 7vw, 88px) 0; }
+.book-band {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 28px 48px;
+  background: #fff; border-top: 3px solid var(--gold); border-radius: var(--radius-lg); box-shadow: var(--shadow);
+  padding: clamp(28px, 4vw, 48px);
+}
+.book-band h2 { margin-bottom: .25em; }
+.book-band p:last-child { margin: 0; color: var(--ink-soft); max-width: 34em; }
+.book-band-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.book-band-phone { color: var(--ink-soft); font-size: .92rem; text-decoration: none; }
+.book-band-phone:hover { color: var(--navy); }
+
+/* Slide-in booking panel */
+.bk-modal { position: fixed; inset: 0; z-index: 200; display: none; }
+.bk-modal.is-open, html:not(.js) .bk-modal:target { display: block; }
+.bk-backdrop { position: absolute; inset: 0; background: rgba(21, 33, 57, .6); backdrop-filter: blur(3px); animation: bk-fade .3s ease both; cursor: default; }
+.bk-panel {
+  position: absolute; top: 0; right: 0; height: 100%; width: min(620px, 100%);
+  background: #fff; overflow-y: auto; overscroll-behavior: contain; outline: none;
+  box-shadow: -24px 0 60px -24px rgba(0, 0, 0, .45);
+  scroll-padding: 96px 0 96px;
+  animation: bk-slide .45s cubic-bezier(.16, 1, .3, 1) both;
+}
+.bk-modal.is-closing .bk-backdrop { animation: bk-fade-out .24s ease forwards; }
+.bk-modal.is-closing .bk-panel { animation: bk-slide-out .24s ease-in forwards; }
+.bk-panel-head {
+  position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--navy); color: #fff; padding: 18px 28px; border-bottom: 3px solid var(--gold);
+}
+.bk-panel-head h2 { color: #fff; font-size: 1.45rem; margin: 0; }
+.bk-panel-head .eyebrow { color: var(--gold); font-size: .68rem; margin: 0 0 .3em; }
+.bk-close {
+  flex: none; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%;
+  color: #fff; font-size: 1.9rem; line-height: 1; text-decoration: none; cursor: pointer; transition: background .2s;
+}
+.bk-close:hover { background: rgba(255, 255, 255, .12); }
+.bk-panel .booker { max-width: none; margin: 0; box-shadow: none; border: 0; border-radius: 0; padding: 26px 28px 0; }
+.bk-panel .bk-nav {
+  position: sticky; bottom: 0; z-index: 2; background: #fff; margin: 26px -28px 0; padding: 16px 28px;
+  border-top: 1px solid var(--line);
+}
+.bk-panel .bk-done .bk-nav { position: static; border-top: 0; }
+.bk-panel .bk-done { padding-bottom: 28px; }
+html.bk-locked { overflow: hidden; }
+html.bk-locked .mobile-book { display: none; }
+
+@keyframes bk-fade { from { opacity: 0; } }
+@keyframes bk-fade-out { to { opacity: 0; } }
+@keyframes bk-slide { from { transform: translateX(100%); } }
+@keyframes bk-slide-out { to { transform: translateX(100%); } }
+@keyframes bk-rise { from { transform: translateY(100%); } }
+@keyframes bk-sink { to { transform: translateY(100%); } }
+
+@media (max-width: 640px) {
+  .bk-panel { top: 12px; height: calc(100% - 12px); border-radius: 16px 16px 0 0; animation-name: bk-rise; }
+  .bk-modal.is-closing .bk-panel { animation-name: bk-sink; }
+  .bk-panel-head { padding: 14px 18px; border-radius: 16px 16px 0 0; }
+  .bk-panel .booker { padding: 20px 18px 0; }
+  .bk-panel .bk-nav { margin-inline: -18px; padding: 14px 18px; }
+  .book-band-actions { width: 100%; }
+  .book-band-actions .btn { width: 100%; }
+}
+
 /* Contact */
 .contact-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(32px, 5vw, 64px); align-items: stretch; }
 address { font-style: normal; font-size: 1.15rem; margin-bottom: 1em; }
@@ -336,4 +400,5 @@ address { font-style: normal; font-size: 1.15rem; margin-bottom: 1em; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition: none !important; }
   .reveal { opacity: 1; transform: none; }
+  .bk-panel, .bk-backdrop { animation-duration: .01s !important; }
 }

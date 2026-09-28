@@ -25,7 +25,7 @@
   // In-page links: scroll directly so they also work inside embedded/sandboxed previews.
   document.addEventListener('click', function (e) {
     var a = e.target.closest('a[href^="#"]');
-    if (!a || a.getAttribute('href').length < 2) return;
+    if (!a || a.getAttribute('href').length < 2 || a.getAttribute('href') === '#booking') return;
     var target = document.getElementById(a.getAttribute('href').slice(1));
     if (!target) return;
     e.preventDefault();

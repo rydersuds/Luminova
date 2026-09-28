@@ -7,6 +7,10 @@
   var $ = function (sel, el) { return (el || root).querySelector(sel); };
   var $$ = function (sel, el) { return Array.prototype.slice.call((el || root).querySelectorAll(sel)); };
 
+  document.documentElement.classList.add('js');
+  var modal = document.getElementById('booking');
+  var panel = modal.querySelector('.bk-panel');
+  var lastFocus = null;
   var steps = $$('.bk-step');
   var alertBox = $('.bk-alert');
   var form = $('form.bk-step');
@@ -71,8 +75,7 @@
     showAlert('');
     if (step === 2) renderDays();
     if (step === 3) renderSummary();
-    var rect = root.getBoundingClientRect();
-    if (rect.top < 0) root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (panel) panel.scrollTop = 0;
   }
 
   function syncNext() {
@@ -106,6 +109,9 @@
     }).join('');
     $('.bk-durations-wrap').hidden = false;
     syncNext();
+    if (modal.classList.contains('is-open')) {
+      $('.bk-durations-wrap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   function renderDays() {
@@ -280,13 +286,63 @@
     if (err && err.textContent) { err.textContent = ''; e.target.setAttribute('aria-invalid', 'false'); }
   });
 
-  // "Book this" links on service cards preselect the service.
+  // ---------- Slide-in booking panel ----------
+  // Every "Book" link opens the panel over the current page; "Book this" on a service card
+  // also preselects that service. Without JavaScript, #booking falls back to CSS :target.
+  function openBooking(serviceId) {
+    if (serviceId) {
+      if (cfg) { restart(); selectService(serviceId); }
+      else pendingService = serviceId;
+    } else if (state.step === 4) {
+      restart();
+    }
+    if (modal.classList.contains('is-open')) return;
+    lastFocus = document.activeElement;
+    modal.classList.remove('is-closing');
+    modal.classList.add('is-open');
+    document.documentElement.classList.add('bk-locked');
+    panel.scrollTop = 0;
+    requestAnimationFrame(function () { panel.focus({ preventScroll: true }); });
+  }
+
+  function closeBooking() {
+    if (!modal.classList.contains('is-open')) return;
+    modal.classList.add('is-closing');
+    document.documentElement.classList.remove('bk-locked');
+    setTimeout(function () { modal.classList.remove('is-open', 'is-closing'); }, 240);
+    if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+  }
+
   document.addEventListener('click', function (e) {
-    var link = e.target.closest('[data-book-service]');
-    if (!link) return;
-    if (cfg) { restart(); selectService(link.dataset.bookService); }
-    else pendingService = link.dataset.bookService;
+    var opener = e.target.closest('a[href="#booking"], [data-open-booking], [data-book-service]');
+    if (opener) {
+      e.preventDefault();
+      openBooking(opener.dataset.bookService);
+      return;
+    }
+    if (e.target.closest('[data-close-booking]')) {
+      e.preventDefault();
+      closeBooking();
+    }
   });
+
+  document.addEventListener('keydown', function (e) {
+    if (!modal.classList.contains('is-open')) return;
+    if (e.key === 'Escape') { closeBooking(); return; }
+    if (e.key !== 'Tab') return;
+    // Keep keyboard focus inside the panel.
+    var focusable = $$('a[href], button:not([disabled]), input:not([disabled]):not([tabindex="-1"]), textarea, [tabindex="0"]', modal)
+      .filter(function (el) { return el.offsetParent !== null; });
+    if (!focusable.length) return;
+    var first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === panel)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+
+  if (location.hash === '#booking') {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (err) { /* ignore */ }
+    openBooking();
+  }
 
   // ---------- Init ----------
   api.config().then(function (c) {
