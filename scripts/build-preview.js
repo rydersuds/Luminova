@@ -224,32 +224,51 @@ function assertOffline(name, content) {
 }
 
 // Stylised map for the preview, in place of the embedded Google map.
-const mapSvg = `<div class="map map-static" role="img" aria-label="Map: Massage Fenix at 70 Elgin Meadows Way SE, McKenzie Towne, Calgary">
+const mapSvg = `<div class="map map-static" role="img" aria-label="Map: Massage Fenix at 70 Elgin Meadows Way SE, McKenzie Towne, south-east Calgary">
           <svg viewBox="0 0 600 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
             <rect width="600" height="420" fill="#efe9dd"/>
-            <path d="M0 300 C120 280 200 330 330 300 S520 250 600 270 V420 H0Z" fill="#dfe6d6"/>
-            <circle cx="470" cy="110" r="70" fill="#dfe6d6"/>
-            <g fill="none" stroke="#fff" stroke-linecap="round">
-              <path d="M-10 190 H610" stroke-width="22"/>
-              <path d="M300 -10 V430" stroke-width="18"/>
-              <path d="M60 -10 C90 120 110 260 80 430" stroke-width="12"/>
-              <path d="M520 -10 C500 150 540 280 520 430" stroke-width="12"/>
-              <path d="M-10 90 C150 110 250 70 610 60" stroke-width="10"/>
-              <path d="M-10 330 C200 350 380 300 610 350" stroke-width="10"/>
-              <path d="M300 190 C340 240 400 250 440 300" stroke-width="9"/>
+            <!-- parks and green space -->
+            <g fill="#dfe6d6">
+              <path d="M0 0 H70 C60 90 40 160 0 190Z"/>
+              <ellipse cx="250" cy="120" rx="46" ry="30"/>
+              <ellipse cx="420" cy="300" rx="38" ry="26"/>
+              <path d="M470 0 H600 V110 C560 90 500 70 470 0Z"/>
+              <path d="M0 360 C120 350 220 380 330 420 H0Z"/>
             </g>
-            <g font-family="Lato, sans-serif" font-size="13" fill="#8a8f99" letter-spacing="1.5">
-              <text x="20" y="182">52 ST SE</text>
-              <text x="310" y="30" transform="rotate(90 310 30)">ELGIN MEADOWS WAY SE</text>
-              <text x="395" y="115" fill="#7d9270">ELGIN PARK</text>
+            <!-- neighbourhood streets -->
+            <g fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".9">
+              ${Array.from({ length: 9 }, (_, i) => `<path d="M${130 + i * 30} 40 C${138 + i * 30} 150 ${126 + i * 30} 250 ${134 + i * 30} 340"/>`).join('')}
+              ${Array.from({ length: 8 }, (_, i) => `<path d="M110 ${60 + i * 36} C220 ${54 + i * 36} 330 ${68 + i * 36} 420 ${60 + i * 36}"/>`).join('')}
+              ${Array.from({ length: 5 }, (_, i) => `<path d="M455 ${150 + i * 34} H590"/>`).join('')}
+              ${Array.from({ length: 4 }, (_, i) => `<path d="M${470 + i * 34} 130 V330"/>`).join('')}
             </g>
-            <g transform="translate(345 232)">
-              <ellipse cx="0" cy="36" rx="14" ry="5" fill="rgba(0,0,0,.18)"/>
-              <path d="M0 36 C-14 16 -22 6 -22 -6 A22 22 0 0 1 22 -6 C22 6 14 16 0 36Z" fill="#1b2a45"/>
-              <circle cx="0" cy="-6" r="8" fill="#c9a55c"/>
+            <!-- main roads -->
+            <g fill="none" stroke-linecap="round">
+              <path d="M112 -10 C96 120 120 260 104 430" stroke="#f3d9a0" stroke-width="16"/>
+              <path d="M112 -10 C96 120 120 260 104 430" stroke="#fff" stroke-width="3" stroke-dasharray="10 12" opacity=".8"/>
+              <path d="M-10 385 C160 370 380 400 610 378" stroke="#f3d9a0" stroke-width="16"/>
+              <path d="M440 -10 C448 140 432 280 444 430" stroke="#fff" stroke-width="11"/>
+              <path d="M-10 350 C180 344 360 356 610 346" stroke="#fff" stroke-width="10"/>
+              <path d="M-10 26 C200 20 400 32 610 22" stroke="#fff" stroke-width="10"/>
+            </g>
+            <g font-family="Lato, sans-serif" font-size="11" fill="#8a8f99" letter-spacing="1.2" font-weight="700">
+              <text x="126" y="300" transform="rotate(-86 126 300)">DEERFOOT TR</text>
+              <text x="428" y="120" transform="rotate(-88 428 120)" text-anchor="end">52 ST SE</text>
+              <text x="150" y="340">130 AVE SE</text>
+              <text x="405" y="372">STONEY TR</text>
+            </g>
+            <g font-family="Lato, sans-serif" fill="#6d7a90" letter-spacing="2.5" font-weight="700" text-anchor="middle">
+              <text x="275" y="205" font-size="15">MCKENZIE TOWNE</text>
+            </g>
+            <g transform="translate(312 250)">
+              <circle r="30" fill="rgba(201,165,92,.18)"/>
+              <circle r="15" fill="rgba(201,165,92,.28)"/>
+              <ellipse cx="0" cy="26" rx="10" ry="3.5" fill="rgba(0,0,0,.2)"/>
+              <path d="M0 26 C-10 12 -16 4 -16 -4 A16 16 0 0 1 16 -4 C16 4 10 12 0 26Z" fill="#1b2a45"/>
+              <circle cx="0" cy="-4" r="6" fill="#c9a55c"/>
             </g>
           </svg>
-          <div class="map-label"><strong>Massage Fenix</strong><span>70 Elgin Meadows Way SE, Calgary</span></div>
+          <div class="map-label"><strong>Massage Fenix</strong><span>70 Elgin Meadows Way SE · McKenzie Towne, Calgary SE</span></div>
         </div>`;
 const mapCss = `.map-static{position:relative;min-height:380px}
 .map-static svg{position:absolute;inset:0;width:100%;height:100%}
