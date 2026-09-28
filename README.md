@@ -37,7 +37,11 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 - `server.js`: static files plus the booking API, backed by `node:sqlite`
 - `config.js`: studio hours, services and booking rules
 - `test/`: API tests (`npm test`)
-- `scripts/build-preview.js`: `npm run preview` writes `dist/preview.html`, a single-file copy of the site with booking in demo mode, for sharing a look at the design
+- `public/fonts/`: Lato and Playfair Display served locally (no Google Fonts requests)
+- `scripts/build-preview.js`: `npm run preview` writes self-contained previews to `dist/`. They load nothing from the internet and work without JavaScript:
+  - `preview-all.html`: one page with tabs for the website, the website in a phone frame, and the admin dashboard
+  - `preview.html`: the website, with booking in demo mode and a drawn map instead of Google Maps
+  - `admin-preview.html`: the admin dashboard filled with sample bookings
 
 ## Deploying
 

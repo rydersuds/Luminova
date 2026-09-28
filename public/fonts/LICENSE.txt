@@ -1,0 +1,2 @@
+Lato (c) Lukasz Dziedzic and Playfair Display (c) Claus Eggers Sorensen, both under the SIL Open Font License 1.1: https://openfontlicense.org
+Latin subsets downloaded from Google Fonts and served locally so the site loads no third-party fonts.

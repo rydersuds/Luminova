@@ -206,7 +206,58 @@ label.bk-backdrop,label.bk-close{cursor:pointer}
 @media (max-width:820px){.nav label{padding:14px 0;border-bottom:1px solid var(--line);font-size:1.05rem}}
 `;
 
-// ---------- Assemble ----------
+// ---------- Shared helpers ----------
+// Fonts are embedded as data URIs so the previews load nothing from the internet.
+const fontDir = path.join(pub, 'fonts');
+const fontCss = fs.readFileSync(path.join(fontDir, 'fonts.css'), 'utf8').replace(/url\('([\w.-]+\.woff2)'\)/g, (m, f) =>
+  `url(data:font/woff2;base64,${fs.readFileSync(path.join(fontDir, f)).toString('base64')})`);
+const money2 = (n) => '$' + (n % 1 ? n.toFixed(2) : n);
+const dist = path.join(__dirname, '..', 'dist');
+function write(name, content) {
+  fs.mkdirSync(dist, { recursive: true });
+  fs.writeFileSync(path.join(dist, name), content);
+  console.log('Wrote', path.join('dist', name), `(${Math.round(content.length / 1024)} KB)`);
+}
+function assertOffline(name, content) {
+  const external = content.match(/(?:href|src)="https?:\/\/[^"]+"/g);
+  if (external) throw new Error(`${name} still links outside the preview: ${external.join(', ')}`);
+}
+
+// Stylised map for the preview, in place of the embedded Google map.
+const mapSvg = `<div class="map map-static" role="img" aria-label="Map: Massage Fenix at 70 Elgin Meadows Way SE, McKenzie Towne, Calgary">
+          <svg viewBox="0 0 600 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="600" height="420" fill="#efe9dd"/>
+            <path d="M0 300 C120 280 200 330 330 300 S520 250 600 270 V420 H0Z" fill="#dfe6d6"/>
+            <circle cx="470" cy="110" r="70" fill="#dfe6d6"/>
+            <g fill="none" stroke="#fff" stroke-linecap="round">
+              <path d="M-10 190 H610" stroke-width="22"/>
+              <path d="M300 -10 V430" stroke-width="18"/>
+              <path d="M60 -10 C90 120 110 260 80 430" stroke-width="12"/>
+              <path d="M520 -10 C500 150 540 280 520 430" stroke-width="12"/>
+              <path d="M-10 90 C150 110 250 70 610 60" stroke-width="10"/>
+              <path d="M-10 330 C200 350 380 300 610 350" stroke-width="10"/>
+              <path d="M300 190 C340 240 400 250 440 300" stroke-width="9"/>
+            </g>
+            <g font-family="Lato, sans-serif" font-size="13" fill="#8a8f99" letter-spacing="1.5">
+              <text x="20" y="182">52 ST SE</text>
+              <text x="310" y="30" transform="rotate(90 310 30)">ELGIN MEADOWS WAY SE</text>
+              <text x="395" y="115" fill="#7d9270">ELGIN PARK</text>
+            </g>
+            <g transform="translate(345 232)">
+              <ellipse cx="0" cy="36" rx="14" ry="5" fill="rgba(0,0,0,.18)"/>
+              <path d="M0 36 C-14 16 -22 6 -22 -6 A22 22 0 0 1 22 -6 C22 6 14 16 0 36Z" fill="#1b2a45"/>
+              <circle cx="0" cy="-6" r="8" fill="#c9a55c"/>
+            </g>
+          </svg>
+          <div class="map-label"><strong>Massage Fenix</strong><span>70 Elgin Meadows Way SE, Calgary</span></div>
+        </div>`;
+const mapCss = `.map-static{position:relative;min-height:380px}
+.map-static svg{position:absolute;inset:0;width:100%;height:100%}
+.map-label{position:absolute;left:16px;bottom:16px;background:#fff;border-radius:8px;padding:10px 14px;box-shadow:0 10px 24px -14px rgba(21,33,57,.5);border-left:3px solid var(--gold)}
+.map-label strong{display:block;font-family:var(--serif);color:var(--navy)}
+.map-label span{font-size:.85rem;color:var(--ink-soft)}`;
+
+// ---------- Website preview ----------
 let html = read('index.html');
 const start = html.indexOf('<div class="booker" data-booker>');
 const endMarker = '</noscript>';
@@ -215,9 +266,13 @@ if (start < 0 || end < start) throw new Error('Booking widget markup not found i
 html = html.slice(0, start) + booker + html.slice(end);
 
 html = html
-  .replace('<link rel="stylesheet" href="styles.css">', () => `<style>\n${read('styles.css')}\n${css}</style>`)
+  .replace('<link rel="stylesheet" href="fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
+  .replace('<link rel="stylesheet" href="styles.css">', () => `<style>\n${read('styles.css')}\n${css}\n${mapCss}</style>`)
   .replace('<script src="script.js"></script>', () => `<script>\n${inline(read('script.js'))}\n</script>`)
   .replace('<script src="booking.js"></script>', '')
+  // Map and directions point at Google; the preview shows a drawn map instead.
+  .replace(/<div class="map">[\s\S]*?<\/div>/, () => mapSvg)
+  .replace(/\s*<a class="btn btn-outline-navy" href="https:\/\/www\.google\.com\/maps\/dir\/[^"]*">Get directions<\/a>/, '')
   // Links become labels for the demo's radio buttons, so the panel opens and closes without JavaScript.
   // "Book this" opens the panel with that service selected.
   .replace(/<a class="service-book" href="#booking" data-book-service="([\w-]+)">Book this<\/a>/g, '<label class="service-book" for="d-svc-$1">Book this</label>')
@@ -226,8 +281,131 @@ html = html
   .replace(/<a ([^>]*?)href="#booking"([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-any"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#" data-close-booking([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-none"$2>$3</label>');
 if (/href="#booking"|data-close-booking/.test(html)) throw new Error('Unconverted booking link left in preview');
+assertOffline('preview.html', html);
+write('preview.html', html);
 
-const out = path.join(__dirname, '..', 'dist', 'preview.html');
-fs.mkdirSync(path.dirname(out), { recursive: true });
-fs.writeFileSync(out, html);
-console.log('Wrote', path.relative(process.cwd(), out), `(${Math.round(html.length / 1024)} KB)`);
+// ---------- Admin dashboard preview (sample bookings, no server) ----------
+const sample = [
+  [1, '09:30', 'therapeutic', 60, 'Alex Morgan', false, 'Tight shoulders from desk work'],
+  [1, '11:00', 'deep-tissue', 90, 'Jordan Lee', false, ''],
+  [1, '14:00', 'pregnancy', 60, 'Priya Shah', true, '28 weeks, prefers side-lying'],
+  [1, '17:30', 'sport', 45, 'Marcus Chen', false, 'Hamstring after marathon', 'cancelled'],
+  [2, '10:00', 'stone', 90, 'Dana Whitfield', true, ''],
+  [2, '13:30', 'reflexology', 30, 'Sam Patel', false, ''],
+  [2, '18:00', 'cupping', 60, 'Riley Novak', false, 'Lower back'],
+  [3, '09:30', 'bamboo', 60, 'Casey Brooks', false, ''],
+  [3, '12:00', 'aromatherapy', 90, 'Taylor Singh', true, 'Lavender please'],
+];
+const svcById = Object.fromEntries(config.services.map((x) => [x.id, x]));
+const dayStr = (n) => addDays(today, n).toISOString().slice(0, 10);
+const fmtDay = (n) => fmt(addDays(today, n), { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+const rowsByDay = {};
+let active = 0, hoursBooked = 0, revenue = 0;
+sample.forEach(([d, time, id, dur, name, first, notes, status = 'confirmed'], i) => {
+  const x = svcById[id];
+  const total = Math.round(x.prices[dur] * (first ? 100 - pct : 100)) / 100;
+  if (status === 'confirmed') { active++; hoursBooked += dur / 60; revenue += total; }
+  const startM = toMin(time);
+  const email = name.toLowerCase().replace(/[^a-z]+/g, '.') + '@example.com';
+  const ref = 'S' + String(4729 + i * 37).slice(-4) + 'K';
+  (rowsByDay[d] ||= []).push(`
+              <tr class="${status === 'cancelled' ? 'cancelled' : ''}">
+                <td><strong>${fmtTime(startM)}</strong><small>to ${fmtTime(startM + dur)}</small></td>
+                <td>${esc(name)}<small><a href="tel:4035550${100 + i}">403-555-0${100 + i}</a></small><small><a href="mailto:${email}">${email}</a></small></td>
+                <td>${esc(x.name)}<small>${dur} min · <span class="ref">${ref}</span></small><small><strong>${money2(total)}</strong>${first ? ' <span class="badge">First visit −10%</span>' : ''}</small></td>
+                <td>${esc(notes) || '<small>—</small>'}</td>
+                <td>${status === 'confirmed'
+    ? `<input type="checkbox" id="cx-${i}" class="cx" hidden><label class="danger btnlike" for="cx-${i}"><span class="c-yes">Cancel</span><span class="c-undo">Undo</span></label>`
+    : '<small>Cancelled</small>'}</td>
+              </tr>`);
+});
+const list = Object.entries(rowsByDay).map(([d, rows]) => `
+          <div class="day"><h3>${fmtDay(+d)}</h3><div class="table-wrap"><table>
+            <thead><tr><th>Time</th><th>Client</th><th>Service</th><th>Notes</th><th></th></tr></thead>
+            <tbody>${rows.join('')}</tbody>
+          </table></div></div>`).join('');
+const blocksHtml = `<thead><tr><th>Date</th><th>Time</th><th>Reason</th><th></th></tr></thead><tbody>
+  <tr><td>${fmtDay(2)}</td><td>12:00 pm – 1:00 pm</td><td>Lunch</td><td><button class="danger" type="button">Remove</button></td></tr>
+  <tr><td>${fmtDay(6)}</td><td>All day</td><td>Closed for training</td><td><button class="danger" type="button">Remove</button></td></tr></tbody>`;
+
+let admin = fs.readFileSync(path.join(__dirname, '..', 'admin', 'index.html'), 'utf8');
+admin = admin
+  .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
+  .replace(/<script>[\s\S]*<\/script>/, '')
+  .replace(/\s*<a href="\/">View site<\/a>/, '')
+  .replace('<main class="wrap">', `<main class="wrap">
+    <p class="preview-note">Preview with sample bookings. On the live site this page is password-protected and shows real bookings as they come in.</p>`)
+  .replace('<input type="date" id="from">', `<input type="date" id="from" value="${dayStr(0)}">`)
+  .replace('<input type="date" id="to">', `<input type="date" id="to" value="${dayStr(30)}">`)
+  .replace('<div class="stats" id="stats"></div>', () => `<div class="stats" id="stats"><span class="stat"><strong>${active}</strong>appointments</span><span class="stat"><strong>${hoursBooked}</strong>hours booked</span><span class="stat"><strong>${money2(revenue)}</strong>expected</span></div>`)
+  .replace('<div id="list"><p class="empty">Loading…</p></div>', () => `<div id="list">${list}</div>`)
+  .replace('<form class="toolbar" id="block-form">', '<div class="toolbar" id="block-form">')
+  .replace(/(<button type="submit">Add block<\/button>\s*)<\/form>/, '<button type="button">Add block</button>\n      </div>')
+  .replace('name="date" required>', `name="date" required value="${dayStr(0)}">`)
+  .replace('<table id="blocks"></table>', () => `<table id="blocks">${blocksHtml}</table>`)
+  .replace('</style>', `  .preview-note { background: var(--gold-soft); color: var(--gold-dark); border-radius: 8px; padding: 10px 14px; margin: 0; font-size: .9rem; }
+    .btnlike { display: inline-block; border: 1.5px solid #d9b3b3; border-radius: 4px; padding: 5px 10px; font-size: .85rem; font-weight: 700; cursor: pointer; }
+    .btnlike .c-undo { display: none; }
+    tr:has(.cx:checked) td { color: #9aa3b5; text-decoration: line-through; }
+    tr:has(.cx:checked) td:last-child { text-decoration: none; }
+    tr:has(.cx:checked) .c-yes { display: none; }
+    tr:has(.cx:checked) .c-undo { display: inline; }
+  </style>`);
+if (/<script|id="list"><p class="empty">/.test(admin)) throw new Error('Admin preview still depends on the server');
+assertOffline('admin-preview.html', admin);
+write('admin-preview.html', admin);
+
+// ---------- All-in-one preview: tabs for desktop, phone and admin ----------
+const srcdoc = (doc) => doc.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+const hub = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Massage Fenix — Preview</title>
+<style>
+${fontCss}
+:root { --navy: #1b2a45; --navy-deep: #152139; --gold: #c9a55c; --gold-soft: #f5eddc; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font: 15px/1.4 Lato, system-ui, sans-serif; background: #e9e5dc; color: var(--navy); display: flex; flex-direction: column; }
+.tabs-state { position: absolute; opacity: 0; pointer-events: none; }
+header { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding: 10px 16px; background: var(--navy-deep); border-bottom: 3px solid var(--gold); }
+h1 { margin: 0; font: 700 1.1rem "Playfair Display", Georgia, serif; color: #fff; margin-right: auto; }
+h1 em { color: var(--gold); }
+nav { display: flex; gap: 6px; flex-wrap: wrap; }
+nav label { padding: 7px 14px; border-radius: 999px; color: #cdd5e2; font-weight: 700; font-size: .85rem; cursor: pointer; border: 1.5px solid rgba(255,255,255,.2); }
+nav label:hover { color: #fff; border-color: rgba(255,255,255,.5); }
+#t-desk:checked ~ header [for="t-desk"], #t-phone:checked ~ header [for="t-phone"], #t-admin:checked ~ header [for="t-admin"] { background: var(--gold); border-color: var(--gold); color: #fff; }
+#t-desk:focus-visible ~ header [for="t-desk"], #t-phone:focus-visible ~ header [for="t-phone"], #t-admin:focus-visible ~ header [for="t-admin"] { outline: 2px solid #fff; outline-offset: 2px; }
+.stage { flex: 1; min-height: 0; display: none; }
+#t-desk:checked ~ .s-desk, #t-admin:checked ~ .s-admin { display: block; }
+#t-phone:checked ~ .s-phone { display: flex; }
+.stage iframe { border: 0; width: 100%; height: 100%; display: block; background: #fff; }
+.s-phone { justify-content: center; align-items: flex-start; overflow: auto; padding: 20px 12px; }
+.phone { flex: none; width: 406px; max-width: 100%; height: 844px; padding: 8px; border-radius: 44px; background: #10182a; box-shadow: 0 30px 60px -30px rgba(0,0,0,.6); }
+.phone iframe { border-radius: 36px; width: 100%; height: 100%; }
+.hint { color: #aab4c6; font-size: .8rem; width: 100%; margin: 0; }
+@media (min-width: 900px) { .hint { width: auto; } }
+</style>
+</head>
+<body>
+<input class="tabs-state" type="radio" name="tab" id="t-desk" checked>
+<input class="tabs-state" type="radio" name="tab" id="t-phone">
+<input class="tabs-state" type="radio" name="tab" id="t-admin">
+<header>
+  <h1>Massage <em>Fenix</em> · Preview</h1>
+  <nav aria-label="Preview">
+    <label for="t-desk">Website</label>
+    <label for="t-phone">Phone</label>
+    <label for="t-admin">Admin dashboard</label>
+  </nav>
+  <p class="hint">Everything runs inside this page. Bookings here are a demo and aren't saved.</p>
+</header>
+<section class="stage s-desk"><iframe title="Website preview" srcdoc="${srcdoc(html)}"></iframe></section>
+<section class="stage s-phone"><div class="phone"><iframe title="Website on a phone" srcdoc="${srcdoc(html)}"></iframe></div></section>
+<section class="stage s-admin"><iframe title="Admin dashboard preview" srcdoc="${srcdoc(admin)}"></iframe></section>
+</body>
+</html>
+`;
+write('preview-all.html', hub);
