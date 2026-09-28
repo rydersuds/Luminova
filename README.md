@@ -26,7 +26,9 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 - Clients pick a service and session length, then a date and time, then enter their details. They get a confirmation number and an "Add to calendar" file.
 - Available times come from the opening hours in `config.js`, minus existing bookings (with a 15-minute turnover buffer) and any blocked time. Two people can't book the same slot.
 - In the admin page (`/admin`) the owner can see upcoming appointments, cancel them, and block off time for holidays, breaks or phone bookings.
-- To change hours, services, session lengths, buffer, notice period or how far ahead clients can book, edit `config.js`.
+- Prices come from the price list in `config.js`. A service can only be booked for the session lengths that have a price (for example, hot & cold stone is 60 or 90 minutes). Clients who tick "first visit" get the new-client discount (10%). Each booking stores its price and total, and the admin page shows expected revenue.
+- The pricing table and service cards on the site show the same prices. Clicking a price opens booking with that massage and length already selected.
+- To change prices, hours, services, buffer, notice period or how far ahead clients can book, edit `config.js`.
 
 ## Project layout
 

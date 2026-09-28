@@ -263,6 +263,63 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .bk-ref { font-size: .95rem; color: var(--ink-soft); }
 .bk-ref strong { font-family: var(--serif); font-size: 1.4rem; color: var(--navy); letter-spacing: .08em; margin-left: .3em; }
 
+/* Prices on service cards */
+.service-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 14px; border-top: 1px solid var(--line); }
+.service-price { font-size: .88rem; color: var(--ink-soft); }
+.service-price strong { font-family: var(--serif); font-size: 1.15rem; color: var(--navy); }
+
+/* Pricing section */
+.price-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+.price-table-wrap { background: #fff; border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow-x: auto; border-top: 3px solid var(--gold); }
+.price-table { width: 100%; border-collapse: collapse; font-size: .98rem; }
+.price-table th, .price-table td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+.price-table thead th { background: var(--navy); color: #fff; font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; }
+.price-table thead th:first-child, .price-table tbody th { text-align: left; }
+.price-table tbody th { font-weight: 700; color: var(--navy); white-space: normal; }
+.price-table tbody tr:last-child > * { border-bottom: 0; }
+.price-table tbody tr:hover { background: var(--cream); }
+.price-table td a {
+  display: inline-block; min-width: 64px; padding: 5px 10px; border-radius: 999px; border: 1.5px solid transparent;
+  font-family: var(--serif); font-weight: 700; font-size: 1.08rem; color: var(--navy); text-decoration: none; transition: all .15s;
+}
+.price-table td a:hover, .price-table td a:focus-visible { border-color: var(--gold); background: var(--gold-soft); }
+.price-table .na { color: #b8bfcc; }
+.price-table .unit-note { display: none; }
+.specials { background: var(--navy); color: #cdd5e2; border-radius: var(--radius-lg); padding: 28px; position: sticky; top: 110px; }
+.specials .eyebrow { color: var(--gold); }
+.special { padding: 16px 0; border-bottom: 1px solid rgba(255, 255, 255, .12); }
+.special:first-of-type { padding-top: 0; }
+.special strong { display: block; font-family: var(--serif); font-size: 1.6rem; color: var(--gold); line-height: 1.2; }
+.special strong span { font-size: 1rem; color: #fff; }
+.special p { margin: .4em 0 0; font-size: .92rem; }
+.specials .btn { width: 100%; margin-top: 22px; }
+
+/* Prices inside the booking panel */
+.bk-option span small { display: block; font-weight: 400; font-size: .82rem; color: var(--ink-soft); margin-top: 2px; }
+.bk-pills .bk-option span { text-align: center; }
+.bk-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.bk-price { text-align: right; flex: none; }
+.bk-price strong { font-family: var(--serif); font-size: 1.5rem; color: var(--navy); }
+.bk-price s { color: var(--ink-soft); margin-right: 4px; }
+.bk-price small { display: block; font-size: .78rem; color: var(--gold-dark); }
+.bk-fields .bk-check { flex-direction: row; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 1.5px dashed var(--gold); border-radius: var(--radius); background: var(--gold-soft); cursor: pointer; }
+.bk-check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--gold-dark); flex: none; }
+.bk-check em { display: block; font-style: normal; font-weight: 400; font-size: .85rem; color: var(--gold-dark); }
+
+@media (max-width: 960px) {
+  .price-grid { grid-template-columns: 1fr; }
+  .specials { position: static; }
+}
+@media (max-width: 640px) {
+  .price-table th, .price-table td { padding: 11px 2px; font-size: .9rem; }
+  .price-table thead th { letter-spacing: .06em; font-size: .7rem; }
+  .price-table thead th:first-child, .price-table tbody th { padding-left: 12px; }
+  .price-table tbody th { font-size: .84rem; }
+  .price-table td a { min-width: 0; padding: 4px 5px; font-size: .95rem; }
+  .price-table .unit { display: none; }
+  .price-table .unit-note { display: inline; text-transform: none; letter-spacing: 0; font-weight: 400; opacity: .7; }
+}
+
 /* Book-online band */
 .section-book { background: var(--cream); padding: clamp(56px, 7vw, 88px) 0; }
 .book-band {

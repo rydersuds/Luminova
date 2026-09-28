@@ -47,12 +47,17 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS blocks_date ON blocks (date);
 `);
+// Columns added after the first release; add them to existing databases.
+const bookingCols = db.prepare('PRAGMA table_info(bookings)').all().map((c) => c.name);
+if (!bookingCols.includes('price')) db.exec('ALTER TABLE bookings ADD COLUMN price REAL');
+if (!bookingCols.includes('total')) db.exec('ALTER TABLE bookings ADD COLUMN total REAL');
+if (!bookingCols.includes('first_visit')) db.exec('ALTER TABLE bookings ADD COLUMN first_visit INTEGER NOT NULL DEFAULT 0');
 
 const q = {
   bookingsOn: db.prepare(`SELECT start_min, end_min FROM bookings WHERE date = ? AND status = 'confirmed'`),
   blocksOn: db.prepare(`SELECT start_min, end_min FROM blocks WHERE date = ?`),
-  insertBooking: db.prepare(`INSERT INTO bookings (ref, service_id, service_name, duration, date, start_min, end_min, name, phone, email, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+  insertBooking: db.prepare(`INSERT INTO bookings (ref, service_id, service_name, duration, date, start_min, end_min, name, phone, email, notes, price, total, first_visit)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
   listBookings: db.prepare(`SELECT * FROM bookings WHERE date BETWEEN ? AND ? ORDER BY date, start_min`),
   cancelBooking: db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ? AND status = 'confirmed'`),
   listBlocks: db.prepare(`SELECT * FROM blocks WHERE date >= ? ORDER BY date, start_min`),
@@ -215,7 +220,15 @@ function validateBooking(b) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) errors.email = 'Enter a valid email address.';
   if (notes.length > 1000) errors.notes = 'Notes must be under 1000 characters.';
 
-  return { errors, value: { service, duration, date, time, name, phone, email, notes } };
+  const firstVisit = b.firstVisit === true;
+  return { errors, value: { service, duration, date, time, name, phone, email, notes, firstVisit } };
+}
+
+// Price for a service and length, with the new-client discount applied to the total.
+function quote(service, duration, firstVisit) {
+  const price = service.prices[duration];
+  const pct = firstVisit ? config.newClientDiscountPercent : 0;
+  return { price, total: Math.round(price * (100 - pct)) / 100, discountPercent: pct };
 }
 
 function newRef() {
@@ -233,7 +246,7 @@ async function notify(booking) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text: `New booking ${booking.ref}: ${booking.service} (${booking.duration} min) on ${when} for ${booking.name}, ${booking.phone}, ${booking.email}`,
+        text: `New booking ${booking.ref}: ${booking.service} (${booking.duration} min, $${booking.total}${booking.firstVisit ? ', first visit' : ''}) on ${when} for ${booking.name}, ${booking.phone}, ${booking.email}`,
         booking,
       }),
       signal: AbortSignal.timeout(5000),
@@ -255,6 +268,8 @@ async function handle(req, res) {
       hours: config.hours,
       maxDaysAhead: config.maxDaysAhead,
       today: nowLocal().date,
+      currency: config.currency,
+      newClientDiscountPercent: config.newClientDiscountPercent,
       services: config.services,
     });
   }
@@ -278,6 +293,7 @@ async function handle(req, res) {
 
     const start = toMin(v.time);
     const ref = newRef();
+    const q$ = quote(v.service, v.duration, v.firstVisit);
     db.exec('BEGIN IMMEDIATE');
     try {
       if (!availableSlots(v.date, v.duration).includes(v.time)) {
@@ -285,13 +301,17 @@ async function handle(req, res) {
         return send(res, 409, { error: 'Sorry, that time was just taken. Please pick another.' });
       }
       q.insertBooking.run(ref, v.service.id, v.service.name, v.duration, v.date, start, start + v.duration,
-        v.name, v.phone, v.email, v.notes);
+        v.name, v.phone, v.email, v.notes, q$.price, q$.total, v.firstVisit ? 1 : 0);
       db.exec('COMMIT');
     } catch (err) {
       db.exec('ROLLBACK');
       throw err;
     }
-    const booking = { ref, service: v.service.name, duration: v.duration, date: v.date, time: v.time, name: v.name, phone: v.phone, email: v.email, notes: v.notes };
+    const booking = {
+      ref, service: v.service.name, duration: v.duration, date: v.date, time: v.time,
+      name: v.name, phone: v.phone, email: v.email, notes: v.notes,
+      price: q$.price, total: q$.total, firstVisit: v.firstVisit, discountPercent: q$.discountPercent,
+    };
     notify(booking);
     return send(res, 201, booking);
   }

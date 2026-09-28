@@ -50,7 +50,7 @@ test('availability covers opening hours', async () => {
 
 test('availability rejects unknown service or bad duration', async () => {
   assert.equal((await get(`/api/availability?service=nope&duration=60&date=${date}`)).status, 400);
-  assert.equal((await get(`/api/availability?service=therapeutic&duration=45&date=${date}`)).status, 400);
+  assert.equal((await get(`/api/availability?service=therapeutic&duration=50&date=${date}`)).status, 400);
 });
 
 test('booking a slot removes it and its buffer; double-booking is refused', async () => {
@@ -67,6 +67,31 @@ test('booking a slot removes it and its buffer; double-booking is refused', asyn
 
   const again = await post('/api/bookings', { service: 'deep-tissue', duration: 90, date, time: '10:00', ...client });
   assert.equal(again.status, 409);
+});
+
+test('bookings are priced from the price list, with the new-client discount', async () => {
+  let res = await post('/api/bookings', { service: 'deep-tissue', duration: 45, date, time: '13:00', ...client });
+  let b = await res.json();
+  assert.equal(res.status, 201);
+  assert.equal(b.price, 80);
+  assert.equal(b.total, 80);
+
+  res = await post('/api/bookings', { service: 'stone', duration: 90, date, time: '15:00', firstVisit: true, ...client });
+  b = await res.json();
+  assert.equal(res.status, 201);
+  assert.equal(b.price, 200);
+  assert.equal(b.total, 180);
+
+  // Hot & cold stone has no 30 min option.
+  res = await post('/api/bookings', { service: 'stone', duration: 30, date, time: '17:30', ...client });
+  assert.equal(res.status, 400);
+
+  // Tidy up so later tests see an open afternoon.
+  const { bookings } = await (await get(`/api/admin/bookings?from=${date}&to=${date}`, auth)).json();
+  for (const x of bookings.filter((x) => ['13:00', '15:00'].includes(x.time))) {
+    assert.ok(x.price && x.total);
+    await post(`/api/admin/bookings/${x.id}/cancel`, {}, auth);
+  }
 });
 
 test('invalid details are rejected with field errors', async () => {

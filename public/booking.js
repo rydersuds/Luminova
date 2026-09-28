@@ -17,6 +17,7 @@
   var state = { step: 1, service: null, duration: null, date: null, time: null, booking: null };
   var cfg = null;
   var pendingService = null;
+  var pendingDuration = null;
   var slotReq = 0;
 
   // ---------- API ----------
@@ -53,6 +54,13 @@
     var h = +hhmm.slice(0, 2), m = hhmm.slice(3);
     return ((h % 12) || 12) + ':' + m + ' ' + (h < 12 ? 'am' : 'pm');
   }
+  function money(n) { return '$' + (n % 1 ? n.toFixed(2) : String(n)); }
+  function fromPrice(svc) { return Math.min.apply(null, svc.durations.map(function (d) { return svc.prices[d]; })); }
+  function quote() {
+    var price = serviceObj().prices[state.duration];
+    var pct = form.elements.firstVisit.checked ? (cfg.newClientDiscountPercent || 0) : 0;
+    return { price: price, pct: pct, total: Math.round(price * (100 - pct)) / 100 };
+  }
   function fmtLong(s) { return fmtDate(s, { weekday: 'long', month: 'long', day: 'numeric' }); }
   function serviceObj() { return cfg.services.filter(function (s) { return s.id === state.service; })[0]; }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -88,7 +96,7 @@
   function renderServices() {
     var wrap = $('[data-services]');
     wrap.innerHTML = cfg.services.map(function (s) {
-      return '<label class="bk-option"><input type="radio" name="bk-service" value="' + esc(s.id) + '"><span>' + esc(s.name) + '</span></label>';
+      return '<label class="bk-option"><input type="radio" name="bk-service" value="' + esc(s.id) + '"><span>' + esc(s.name) + '<small>from ' + money(fromPrice(s)) + '</small></span></label>';
     }).join('');
     wrap.addEventListener('change', function (e) {
       if (e.target.name === 'bk-service') selectService(e.target.value);
@@ -105,13 +113,22 @@
     state.time = null;
     var pills = $('[data-durations]');
     pills.innerHTML = svc.durations.map(function (d) {
-      return '<label class="bk-option"><input type="radio" name="bk-duration" value="' + d + '"' + (d === state.duration ? ' checked' : '') + '><span>' + d + ' min</span></label>';
+      return '<label class="bk-option"><input type="radio" name="bk-duration" value="' + d + '"' + (d === state.duration ? ' checked' : '') + '><span>' + d + ' min<small>' + money(svc.prices[d]) + '</small></span></label>';
     }).join('');
     $('.bk-durations-wrap').hidden = false;
     syncNext();
     if (modal.classList.contains('is-open')) {
       $('.bk-durations-wrap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
+  }
+
+  function selectDuration(d) {
+    var r = $$('input[name="bk-duration"]').filter(function (x) { return Number(x.value) === d; })[0];
+    if (!r) return;
+    r.checked = true;
+    state.duration = d;
+    state.time = null;
+    syncNext();
   }
 
   function renderDays() {
@@ -165,8 +182,11 @@
 
   function renderSummary() {
     var svc = serviceObj();
-    $('[data-summary]').innerHTML = '<strong>' + esc(svc.name) + '</strong> · ' + state.duration + ' min<br>' +
-      fmtLong(state.date) + ' at <strong>' + fmtTime(state.time) + '</strong>';
+    var q = quote();
+    $('[data-summary]').innerHTML = '<span class="bk-summary-main"><strong>' + esc(svc.name) + '</strong> · ' + state.duration + ' min<br>' +
+      fmtLong(state.date) + ' at <strong>' + fmtTime(state.time) + '</strong></span>' +
+      '<span class="bk-price">' + (q.pct ? '<s>' + money(q.price) + '</s> ' : '') + '<strong>' + money(q.total) + '</strong>' +
+      (q.pct ? '<small>' + q.pct + '% new-client discount</small>' : '<small>Paid at the studio</small>') + '</span>';
   }
 
   function setFieldErrors(fields) {
@@ -193,6 +213,7 @@
       service: state.service, duration: state.duration, date: state.date, time: state.time,
       name: form.elements.name.value, phone: form.elements.phone.value, email: form.elements.email.value,
       notes: form.elements.notes.value, website: form.elements.website.value,
+      firstVisit: form.elements.firstVisit.checked,
     };
     var errs = clientValidate(data);
     setFieldErrors(errs);
@@ -206,7 +227,8 @@
     api.book(data).then(function (booking) {
       state.booking = booking;
       $('[data-done-ref]').textContent = booking.ref;
-      $('[data-done-text]').textContent = serviceObj().name + ' (' + state.duration + ' min) on ' + fmtLong(state.date) + ' at ' + fmtTime(state.time) +
+      var total = booking.total != null ? booking.total : quote().total;
+      $('[data-done-text]').textContent = serviceObj().name + ' (' + state.duration + ' min, ' + money(total) + ') on ' + fmtLong(state.date) + ' at ' + fmtTime(state.time) +
         '. We\'ll see you at 70 Elgin Meadows Way SE.';
       go(4);
       $('[data-step="4"]').focus();
@@ -281,6 +303,7 @@
     else if (t.matches('[data-restart]')) restart();
   });
   form.addEventListener('submit', submit);
+  form.elements.firstVisit.addEventListener('change', renderSummary);
   form.addEventListener('input', function (e) {
     var err = $('[data-err="' + e.target.name + '"]');
     if (err && err.textContent) { err.textContent = ''; e.target.setAttribute('aria-invalid', 'false'); }
@@ -289,10 +312,10 @@
   // ---------- Slide-in booking panel ----------
   // Every "Book" link opens the panel over the current page; "Book this" on a service card
   // also preselects that service. Without JavaScript, #booking falls back to CSS :target.
-  function openBooking(serviceId) {
+  function openBooking(serviceId, duration) {
     if (serviceId) {
-      if (cfg) { restart(); selectService(serviceId); }
-      else pendingService = serviceId;
+      if (cfg) { restart(); selectService(serviceId); if (duration) selectDuration(duration); }
+      else { pendingService = serviceId; pendingDuration = duration; }
     } else if (state.step === 4) {
       restart();
     }
@@ -317,7 +340,7 @@
     var opener = e.target.closest('a[href="#booking"], [data-open-booking], [data-book-service]');
     if (opener) {
       e.preventDefault();
-      openBooking(opener.dataset.bookService);
+      openBooking(opener.dataset.bookService, Number(opener.dataset.bookDuration) || null);
       return;
     }
     if (e.target.closest('[data-close-booking]')) {
@@ -349,6 +372,7 @@
     cfg = c;
     renderServices();
     if (pendingService) selectService(pendingService);
+    if (pendingService && pendingDuration) selectDuration(pendingDuration);
     syncNext();
   }).catch(function () {
     $('[data-services]').innerHTML = '<p class="bk-muted">Online booking is unavailable right now. Please call <a href="tel:+14037149481">403 714 9481</a> or email <a href="mailto:info@massagecalgary.ca">info@massagecalgary.ca</a>.</p>';

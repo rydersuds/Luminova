@@ -40,6 +40,7 @@
     td a { color: var(--gold-dark); }
     tr.cancelled td { color: #9aa3b5; text-decoration: line-through; }
     tr.cancelled td:last-child { text-decoration: none; }
+    .badge { background: var(--gold-soft); color: var(--gold-dark); font-size: .75rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
     .ref { font-family: ui-monospace, monospace; font-size: .85rem; }
     .empty { color: var(--ink-soft); padding: 12px 0; }
     .check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 8px; }
@@ -90,6 +91,7 @@
     const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fmtTime = (hhmm) => { const h = +hhmm.slice(0, 2); return ((h % 12) || 12) + ':' + hhmm.slice(3) + (h < 12 ? ' am' : ' pm'); };
     const fmtDay = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-CA', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const money = (n) => '$' + (n % 1 ? n.toFixed(2) : n);
     const localToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Edmonton' }).format(new Date());
     const addDays = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 
@@ -107,7 +109,8 @@
         const { bookings } = await api(`/api/admin/bookings?from=${from}&to=${to}`);
         const active = bookings.filter((b) => b.status === 'confirmed');
         const hours = active.reduce((n, b) => n + b.duration, 0) / 60;
-        $('#stats').innerHTML = `<span class="stat"><strong>${active.length}</strong>appointments</span><span class="stat"><strong>${hours}</strong>hours booked</span>`;
+        const revenue = active.reduce((n, b) => n + (b.total || 0), 0);
+        $('#stats').innerHTML = `<span class="stat"><strong>${active.length}</strong>appointments</span><span class="stat"><strong>${hours}</strong>hours booked</span><span class="stat"><strong>${money(revenue)}</strong>expected</span>`;
         if (!bookings.length) { list.innerHTML = '<p class="empty">No bookings in this range.</p>'; return; }
         const byDay = {};
         bookings.forEach((b) => (byDay[b.date] ||= []).push(b));
@@ -118,7 +121,7 @@
               <tr class="${b.status === 'cancelled' ? 'cancelled' : ''}">
                 <td><strong>${fmtTime(b.time)}</strong><small>to ${fmtTime(b.end)}</small></td>
                 <td>${esc(b.name)}<small><a href="tel:${esc(b.phone)}">${esc(b.phone)}</a></small><small><a href="mailto:${esc(b.email)}">${esc(b.email)}</a></small></td>
-                <td>${esc(b.service_name)}<small>${b.duration} min · <span class="ref">${esc(b.ref)}</span></small></td>
+                <td>${esc(b.service_name)}<small>${b.duration} min · <span class="ref">${esc(b.ref)}</span></small>${b.total != null ? `<small><strong>${money(b.total)}</strong>${b.first_visit ? ' <span class="badge">First visit −10%</span>' : ''}</small>` : ''}</td>
                 <td>${esc(b.notes) || '<small>—</small>'}</td>
                 <td>${b.status === 'confirmed' ? `<button class="danger" data-cancel="${b.id}" data-name="${esc(b.name)}">Cancel</button>` : '<small>Cancelled</small>'}</td>
               </tr>`).join('')}</tbody>

@@ -1,4 +1,4 @@
-// Studio settings used by the booking system. Edit these to match how the studio runs.
+// Studio settings used by the booking system and price list. Edit these to match how the studio runs.
 module.exports = {
   timezone: 'America/Edmonton',
 
@@ -18,17 +18,28 @@ module.exports = {
   minNoticeMinutes: 120,  // earliest a same-day booking can start from now
   maxDaysAhead: 60,       // how far ahead clients can book
 
-  // Session lengths (minutes) offered for each service.
+  currency: 'CAD',
+
+  // Services with price (dollars) per session length in minutes. Only listed lengths can be booked.
   services: [
-    { id: 'therapeutic', name: 'Therapeutic massage', durations: [60, 90] },
-    { id: 'deep-tissue', name: 'Deep tissue', durations: [60, 90] },
-    { id: 'sports', name: 'Sports & rehabilitation', durations: [60, 90] },
-    { id: 'swedish', name: 'Swedish & relaxation', durations: [60, 90] },
-    { id: 'stone', name: 'Hot & cold stone', durations: [60, 90] },
-    { id: 'prenatal', name: 'Prenatal & postnatal', durations: [60, 90] },
-    { id: 'bamboo', name: 'Bamboo massage', durations: [60, 90] },
-    { id: 'reflexology', name: 'Reflexology', durations: [30, 60] },
-    { id: 'cupping', name: 'Cupping (vacuum)', durations: [30, 60] },
-    { id: 'tigers-point', name: "Tiger's point", durations: [30, 60] },
+    { id: 'therapeutic', name: 'Therapeutic massage', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'relaxation', name: 'Relaxation massage', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'pregnancy', name: 'Pregnancy massage', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'deep-tissue', name: 'Deep tissue massage', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'sport', name: 'Sport massage', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'anti-cellulite', name: 'Anti-cellulite massage', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'aromatherapy', name: 'Aromatherapy massage', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'cupping', name: 'Cupping (vacuum)', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'reflexology', name: 'Reflexology', prices: { 30: 60, 45: 80, 60: 120, 90: 180 } },
+    { id: 'stone', name: 'Hot & cold stone', prices: { 60: 140, 90: 200 } },
+    { id: 'bamboo', name: 'Bamboo massage', prices: { 30: 60, 60: 120, 90: 180 } },
   ],
+
+  // First session for new clients, any massage.
+  newClientDiscountPercent: 10,
 };
+
+// Derive the bookable session lengths from the price list.
+for (const s of module.exports.services) {
+  s.durations = Object.keys(s.prices).map(Number).sort((a, b) => a - b);
+}

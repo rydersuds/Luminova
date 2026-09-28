@@ -41,12 +41,19 @@ for (let i = 1; days.length < 14 && i < 30; i++) {
 const radio = (name, id, checked, cls = '') => `<input class="d-state${cls ? ' ' + cls : ''}" type="radio" name="${name}" id="${id}"${checked ? ' checked' : ''}>`;
 const btn = (forId, cls, text) => `<label class="btn ${cls}" for="${forId}">${text}</label>`;
 
+const money = (n) => '$' + (n % 1 ? n.toFixed(2) : n);
+const pct = config.newClientDiscountPercent;
+const pairs = config.services.flatMap((s) => s.durations.map((d) => ({ s, d, price: s.prices[d], disc: Math.round(s.prices[d] * (100 - pct)) / 100 })));
 const summary = `
   <span class="d-sum">
     ${config.services.map((s) => `<strong class="d-sum-svc d-sum-svc-${s.id}">${esc(s.name)}</strong>`).join('')}
     ${allDurations.map((d) => `<span class="d-sum-dur d-sum-dur-${d}"> · ${d} min</span>`).join('')}<br>
     ${days.map((d) => `<span class="d-sum-day d-sum-day-${d.i}">${fmt(d.date, { weekday: 'long', month: 'long', day: 'numeric' })}</span>`).join('')}
     ${days.map((d) => d.slots.map((s) => `<span class="d-sum-time d-sum-time-${d.i}-${hhmm(s.t)}"> at <strong>${fmtTime(s.t)}</strong></span>`).join('')).join('')}
+  </span>
+  <span class="bk-price">
+    ${pairs.map((x) => `<span class="d-sum-price d-sum-price-${x.s.id}-${x.d}"><strong>${money(x.price)}</strong><small>Paid at the studio</small></span>`).join('')}
+    ${pairs.map((x) => `<span class="d-sum-disc d-sum-disc-${x.s.id}-${x.d}"><s>${money(x.price)}</s> <strong>${money(x.disc)}</strong><small>${pct}% new-client discount</small></span>`).join('')}
   </span>`;
 
 const booker = `<div class="booker booker-demo">
@@ -62,12 +69,12 @@ const booker = `<div class="booker booker-demo">
           <div class="bk-step d-p d-p1">
             <p class="bk-label">Choose a service</p>
             <div class="bk-services">
-              ${config.services.map((s) => `<span class="bk-option">${radio('d-svc', `d-svc-${s.id}`, false, 'd-open d-svc-real')}<label for="d-svc-${s.id}">${esc(s.name)}</label></span>`).join('\n              ')}
+              ${config.services.map((s) => `<span class="bk-option">${radio('d-svc', `d-svc-${s.id}`, false, 'd-open d-svc-real')}<label for="d-svc-${s.id}">${esc(s.name)}<small>from ${money(Math.min(...Object.values(s.prices)))}</small></label></span>`).join('\n              ')}
             </div>
             <div class="bk-durations-wrap d-durs">
               <p class="bk-label">Session length</p>
               <div class="bk-pills">
-                ${allDurations.map((d) => `<span class="bk-option d-dur d-dur-${d}">${radio('d-dur', `d-dur-${d}`)}<label for="d-dur-${d}">${d} min</label></span>`).join('')}
+                ${allDurations.map((d) => `<span class="bk-option d-dur d-dur-${d}">${radio('d-dur', `d-dur-${d}`)}<label for="d-dur-${d}">${d} min${config.services.filter((s) => s.prices[d]).map((s) => `<small class="d-pp d-pp-${s.id}">${money(s.prices[d])}</small>`).join('')}</label></span>`).join('')}
               </div>
             </div>
             <div class="bk-nav"><span></span>${btn('d-step2', 'btn-gold d-next d-next1', 'Continue')}</div>
@@ -93,6 +100,7 @@ const booker = `<div class="booker booker-demo">
               <label class="bk-full">Anything we should know? <span class="bk-muted">(optional)</span>
                 <textarea name="notes" rows="3" placeholder="Areas of focus, injuries, pregnancy, pressure preference…"></textarea>
               </label>
+              <span class="bk-check bk-full"><input type="checkbox" id="d-first"><label for="d-first">This is my first visit to Massage Fenix <em>New clients get ${pct}% off their first session</em></label></span>
             </div>
             <p class="bk-muted bk-policy d-fill-hint">Fill in your name, phone and email to confirm.</p>
             <p class="bk-muted bk-policy">Need to cancel or reschedule? Please call <a href="tel:+14037149481">403 714 9481</a> at least 24 hours ahead.</p>
@@ -132,6 +140,12 @@ config.services.forEach((s) => s.durations.forEach((d) => {
   add(`${B}${has(`d-svc-${s.id}`, `d-dur-${d}`)} .d-next1`, 'opacity:1;pointer-events:auto');
   add(`${B}${has(`d-svc-${s.id}`)} .d-sum-svc-${s.id}`, 'display:inline');
 }));
+// Prices: per-service price on each length, and the summary total with or without the first-visit discount
+config.services.forEach((s) => add(`${B}${has(`d-svc-${s.id}`)} .d-pp-${s.id}`, 'display:block;font-weight:400;font-size:.82rem;color:var(--ink-soft);margin-top:2px'));
+pairs.forEach((x) => {
+  add(`${B}${has(`d-svc-${x.s.id}`, `d-dur-${x.d}`)}:not(:has(#d-first:checked)) .d-sum-price-${x.s.id}-${x.d}`, 'display:inline');
+  add(`${B}${has(`d-svc-${x.s.id}`, `d-dur-${x.d}`, 'd-first')} .d-sum-disc-${x.s.id}-${x.d}`, 'display:inline');
+});
 allDurations.forEach((d) => {
   add(`${B}${has(`d-dur-${d}`)} .d-sum-dur-${d}`, 'display:inline');
   add(`${B}${has(`d-dur-${d}`)} .bk-slot.x${d}`, 'display:none');
@@ -149,7 +163,13 @@ ${B},${B} .bk-option,${B} .bk-days,${B} .d-slots{position:relative}
 label.service-book{cursor:pointer}
 ${B} .d-slots-label{margin-top:22px}
 ${B} .d-state{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
-${B} .d-p,${B} .d-slots,${B} .d-durs,${B} .d-dur,${B} [class*="d-sum-"]{display:none}
+${B} .d-p,${B} .d-slots,${B} .d-durs,${B} .d-dur,${B} .d-pp,${B} [class*="d-sum-"]{display:none}
+${B} .bk-option label small:not(.d-pp){display:block;font-weight:400;font-size:.82rem;color:var(--ink-soft);margin-top:2px}
+${B} .bk-pills .bk-option label{text-align:center}
+${B} .bk-price small{display:block}
+${B} .d-p4 .bk-price{display:block;text-align:center;margin-top:10px}
+${B} .bk-check label{display:block;font-weight:700;color:var(--navy);cursor:pointer}
+${B} .bk-check{display:flex}
 ${B}:has(.d-svc-real:checked) .d-durs{display:block}
 ${B} .d-next{opacity:.45;pointer-events:none}
 ${B}:not(:has(.d-p3 :invalid)) .d-confirm{opacity:1;pointer-events:auto}
@@ -179,6 +199,9 @@ ${B}:has(#d-svc-any:checked) [data-progress] span{background:none!important;bord
 ${B}:has(#d-svc-any:checked) [data-progress="1"]{color:var(--navy)!important}
 ${B}:has(#d-svc-any:checked) [data-progress="1"] span{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important}
 label.bk-backdrop,label.bk-close{cursor:pointer}
+.price-table td label.price-link{display:inline-block;min-width:64px;padding:5px 10px;border-radius:999px;border:1.5px solid transparent;font-family:var(--serif);font-weight:700;font-size:1.08rem;color:var(--navy);cursor:pointer;transition:all .15s}
+.price-table td label.price-link:hover{border-color:var(--gold);background:var(--gold-soft)}
+@media (max-width:640px){.price-table td label.price-link{min-width:0;padding:4px 5px;font-size:.95rem}}
 .nav label{color:var(--navy);font-weight:700;font-size:.98rem;padding:6px 0;cursor:pointer}
 @media (max-width:820px){.nav label{padding:14px 0;border-bottom:1px solid var(--line);font-size:1.05rem}}
 `;
@@ -198,6 +221,8 @@ html = html
   // Links become labels for the demo's radio buttons, so the panel opens and closes without JavaScript.
   // "Book this" opens the panel with that service selected.
   .replace(/<a class="service-book" href="#booking" data-book-service="([\w-]+)">Book this<\/a>/g, '<label class="service-book" for="d-svc-$1">Book this</label>')
+  // Prices in the table open the panel with that service selected.
+  .replace(/<a href="#booking" data-book-service="([\w-]+)" data-book-duration="\d+"([^>]*)>([^<]*)<\/a>/g, '<label class="price-link" for="d-svc-$1"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#booking"([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-any"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#" data-close-booking([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-none"$2>$3</label>');
 if (/href="#booking"|data-close-booking/.test(html)) throw new Error('Unconverted booking link left in preview');
