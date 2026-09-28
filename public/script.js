@@ -4,6 +4,7 @@
   var nav = document.getElementById('nav');
   var mobileBook = document.querySelector('.mobile-book');
   var hero = document.querySelector('.hero');
+  var book = document.getElementById('book');
 
   // Mobile menu
   function setMenu(open) {
@@ -24,7 +25,11 @@
   // Header border + sticky mobile booking button
   function onScroll() {
     header.classList.toggle('is-scrolled', window.scrollY > 8);
-    if (mobileBook) mobileBook.classList.toggle('is-shown', window.scrollY > hero.offsetHeight * 0.7);
+    if (mobileBook) {
+      var r = book.getBoundingClientRect();
+      var inBook = r.top < window.innerHeight && r.bottom > 0;
+      mobileBook.classList.toggle('is-shown', window.scrollY > hero.offsetHeight * 0.7 && !inBook);
+    }
   }
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
@@ -64,7 +69,7 @@
   if (y) y.textContent = new Date().getFullYear();
 
   // Scroll reveal
-  var targets = document.querySelectorAll('.section-head, .service, .steps li, .about-grid > *, .contact-grid > *, .pricing-cta');
+  var targets = document.querySelectorAll('.section-head, .service, .about-grid > *, .contact-grid > *, .pricing-cta');
   if ('IntersectionObserver' in window) {
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {

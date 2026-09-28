@@ -1,0 +1,15 @@
+{
+  "name": "massage-fenix",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Massage Fenix website with built-in online booking",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "preview": "node scripts/build-preview.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  }
+}

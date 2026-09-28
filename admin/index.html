@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Bookings — Massage Fenix</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root { --navy: #1b2a45; --navy-deep: #152139; --gold: #c9a55c; --gold-dark: #a8853d; --gold-soft: #f5eddc; --cream: #f8f6f1; --line: #e5dfd2; --ink-soft: #56627a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.5 "Lato", system-ui, sans-serif; color: var(--navy); background: var(--cream); }
+    header { background: var(--navy-deep); color: #fff; padding: 18px 0; border-bottom: 3px solid var(--gold); }
+    .wrap { width: min(1100px, 100% - 32px); margin-inline: auto; }
+    header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    h1 { font: 700 1.4rem "Playfair Display", Georgia, serif; margin: 0; }
+    h1 em { color: var(--gold); }
+    header a { color: var(--gold); font-size: .9rem; }
+    h2 { font: 700 1.3rem "Playfair Display", Georgia, serif; margin: 0 0 14px; }
+    main { padding: 28px 0 60px; display: grid; gap: 24px; }
+    .card { background: #fff; border-radius: 10px; padding: 22px; box-shadow: 0 14px 30px -24px rgba(21,33,57,.5); }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 16px; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+    input, button { font: inherit; }
+    input { padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 4px; color: var(--navy); text-transform: none; letter-spacing: 0; font-weight: 400; }
+    button { padding: 9px 16px; border-radius: 4px; border: 1.5px solid var(--navy); background: var(--navy); color: #fff; font-weight: 700; cursor: pointer; }
+    button.ghost { background: #fff; color: var(--navy); }
+    button.danger { background: #fff; color: #a33; border-color: #d9b3b3; padding: 5px 10px; font-size: .85rem; }
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .stat { background: var(--gold-soft); border-radius: 6px; padding: 8px 14px; font-size: .9rem; }
+    .stat strong { font-size: 1.2rem; margin-right: 4px; }
+    .day { margin-top: 18px; }
+    .day h3 { font-size: .85rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-dark); margin: 0 0 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+    td small { color: var(--ink-soft); display: block; }
+    td a { color: var(--gold-dark); }
+    tr.cancelled td { color: #9aa3b5; text-decoration: line-through; }
+    tr.cancelled td:last-child { text-decoration: none; }
+    .ref { font-family: ui-monospace, monospace; font-size: .85rem; }
+    .empty { color: var(--ink-soft); padding: 12px 0; }
+    .check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 8px; }
+    .msg { font-size: .9rem; min-height: 1.3em; margin: 8px 0 0; }
+    .msg.err { color: #a33; }
+    .table-wrap { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Massage <em>Fenix</em> · Bookings</h1>
+      <a href="/">View site</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h2>Appointments</h2>
+      <div class="toolbar">
+        <label>From<input type="date" id="from"></label>
+        <label>To<input type="date" id="to"></label>
+        <button id="load">Show</button>
+        <button class="ghost" id="today">Next 7 days</button>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div id="list"><p class="empty">Loading…</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Block off time</h2>
+      <p style="margin-top:0;color:var(--ink-soft)">Blocked times won't be offered to clients: holidays, breaks, appointments booked by phone.</p>
+      <form class="toolbar" id="block-form">
+        <label>Date<input type="date" name="date" required></label>
+        <label>Start<input type="time" name="start" value="12:00" step="900"></label>
+        <label>End<input type="time" name="end" value="13:00" step="900"></label>
+        <label class="check"><input type="checkbox" name="allDay"> All day</label>
+        <label style="flex:1;min-width:180px">Reason<input name="reason" maxlength="200" placeholder="e.g. Phone booking – J. Smith"></label>
+        <button type="submit">Add block</button>
+      </form>
+      <p class="msg" id="block-msg"></p>
+      <div class="table-wrap"><table id="blocks"></table></div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmtTime = (hhmm) => { const h = +hhmm.slice(0, 2); return ((h % 12) || 12) + ':' + hhmm.slice(3) + (h < 12 ? ' am' : ' pm'); };
+    const fmtDay = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-CA', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const localToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Edmonton' }).format(new Date());
+    const addDays = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+
+    async function api(url, opts = {}) {
+      const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Request failed');
+      return body;
+    }
+
+    async function loadBookings() {
+      const from = $('#from').value, to = $('#to').value;
+      const list = $('#list');
+      try {
+        const { bookings } = await api(`/api/admin/bookings?from=${from}&to=${to}`);
+        const active = bookings.filter((b) => b.status === 'confirmed');
+        const hours = active.reduce((n, b) => n + b.duration, 0) / 60;
+        $('#stats').innerHTML = `<span class="stat"><strong>${active.length}</strong>appointments</span><span class="stat"><strong>${hours}</strong>hours booked</span>`;
+        if (!bookings.length) { list.innerHTML = '<p class="empty">No bookings in this range.</p>'; return; }
+        const byDay = {};
+        bookings.forEach((b) => (byDay[b.date] ||= []).push(b));
+        list.innerHTML = Object.entries(byDay).map(([day, rows]) => `
+          <div class="day"><h3>${fmtDay(day)}</h3><div class="table-wrap"><table>
+            <thead><tr><th>Time</th><th>Client</th><th>Service</th><th>Notes</th><th></th></tr></thead>
+            <tbody>${rows.map((b) => `
+              <tr class="${b.status === 'cancelled' ? 'cancelled' : ''}">
+                <td><strong>${fmtTime(b.time)}</strong><small>to ${fmtTime(b.end)}</small></td>
+                <td>${esc(b.name)}<small><a href="tel:${esc(b.phone)}">${esc(b.phone)}</a></small><small><a href="mailto:${esc(b.email)}">${esc(b.email)}</a></small></td>
+                <td>${esc(b.service_name)}<small>${b.duration} min · <span class="ref">${esc(b.ref)}</span></small></td>
+                <td>${esc(b.notes) || '<small>—</small>'}</td>
+                <td>${b.status === 'confirmed' ? `<button class="danger" data-cancel="${b.id}" data-name="${esc(b.name)}">Cancel</button>` : '<small>Cancelled</small>'}</td>
+              </tr>`).join('')}</tbody>
+          </table></div></div>`).join('');
+      } catch (e) {
+        list.innerHTML = `<p class="empty">${esc(e.message)}</p>`;
+      }
+    }
+
+    async function loadBlocks() {
+      const { blocks } = await api('/api/admin/blocks');
+      $('#blocks').innerHTML = blocks.length
+        ? '<thead><tr><th>Date</th><th>Time</th><th>Reason</th><th></th></tr></thead><tbody>' + blocks.map((b) => `
+          <tr><td>${fmtDay(b.date)}</td><td>${b.start_min === 0 && b.end_min === 1440 ? 'All day' : fmtTime(b.start) + ' – ' + fmtTime(b.end)}</td>
+          <td>${esc(b.reason) || '—'}</td><td><button class="danger" data-unblock="${b.id}">Remove</button></td></tr>`).join('') + '</tbody>'
+        : '<tbody><tr><td class="empty">No upcoming blocks.</td></tr></tbody>';
+    }
+
+    document.addEventListener('click', async (e) => {
+      const c = e.target.closest('[data-cancel]');
+      if (c && confirm(`Cancel the booking for ${c.dataset.name}? Remember to let them know.`)) {
+        try { await api(`/api/admin/bookings/${c.dataset.cancel}/cancel`, { method: 'POST' }); loadBookings(); }
+        catch (err) { alert(err.message); }
+      }
+      const u = e.target.closest('[data-unblock]');
+      if (u) { await api(`/api/admin/blocks/${u.dataset.unblock}`, { method: 'DELETE' }); loadBlocks(); }
+    });
+
+    $('#block-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target, msg = $('#block-msg');
+      try {
+        await api('/api/admin/blocks', { method: 'POST', body: JSON.stringify({
+          date: f.date.value, start: f.start.value, end: f.end.value, allDay: f.allDay.checked, reason: f.reason.value,
+        }) });
+        msg.className = 'msg'; msg.textContent = 'Blocked.';
+        f.reason.value = '';
+        loadBlocks();
+      } catch (err) { msg.className = 'msg err'; msg.textContent = err.message; }
+    });
+    $('#block-form').allDay.addEventListener('change', (e) => {
+      $('#block-form').start.disabled = $('#block-form').end.disabled = e.target.checked;
+    });
+
+    function setRange(days) { const t = localToday(); $('#from').value = t; $('#to').value = addDays(t, days); loadBookings(); }
+    $('#load').addEventListener('click', loadBookings);
+    $('#today').addEventListener('click', () => setRange(7));
+    $('#block-form').date.value = localToday();
+    setRange(30);
+    loadBlocks();
+  </script>
+</body>
+</html>
