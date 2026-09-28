@@ -6,6 +6,29 @@
   var hero = document.querySelector('.hero');
   var book = document.getElementById('book');
 
+  // Dark mode switch: the checkbox drives the CSS; remember the choice.
+  var root = document.documentElement;
+  var themeBox = document.getElementById('theme-toggle');
+  var themeMeta = document.querySelector('meta[name="theme-color"]');
+  var systemDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+  function savedTheme() { try { return localStorage.getItem('theme'); } catch (e) { return null; } }
+  function syncThemeMeta() { if (themeMeta) themeMeta.content = themeBox.checked ? '#0d1524' : '#1b2a45'; }
+  if (themeBox) {
+    themeBox.checked = root.dataset.theme === 'dark';
+    delete root.dataset.theme; // from here on the checkbox is the single source of truth
+    syncThemeMeta();
+    themeBox.addEventListener('change', function () {
+      try { localStorage.setItem('theme', themeBox.checked ? 'dark' : 'light'); } catch (e) { /* ignore */ }
+      syncThemeMeta();
+    });
+    // Follow the system setting until the visitor picks one.
+    if (systemDark && systemDark.addEventListener) {
+      systemDark.addEventListener('change', function (e) {
+        if (!savedTheme()) { themeBox.checked = e.matches; syncThemeMeta(); }
+      });
+    }
+  }
+
   // Mobile menu
   function setMenu(open) {
     nav.classList.toggle('is-open', open);

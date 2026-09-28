@@ -127,8 +127,8 @@ const add = (sel, body) => rules.push(`${sel}{${body}}`);
 // Steps and progress
 [1, 2, 3, 4].forEach((n) => {
   add(`${B}${has(`d-step${n}`)} .d-p${n}`, 'display:block');
-  add(`${B}${has(`d-step${n}`)} [data-progress="${n}"]`, 'color:var(--navy)');
-  add(`${B}${has(`d-step${n}`)} [data-progress="${n}"] span`, 'background:var(--navy);border-color:var(--navy);color:#fff');
+  add(`${B}${has(`d-step${n}`)} [data-progress="${n}"]`, 'color:var(--heading)');
+  add(`${B}${has(`d-step${n}`)} [data-progress="${n}"] span`, 'background:var(--strong);border-color:var(--strong);color:var(--on-strong)');
   for (let k = 1; k < n; k++) {
     add(`${B}${has(`d-step${n}`)} [data-progress="${k}"]`, 'color:var(--gold-dark)');
     add(`${B}${has(`d-step${n}`)} [data-progress="${k}"] span`, 'background:var(--gold);border-color:var(--gold);color:#fff');
@@ -168,18 +168,18 @@ ${B} .bk-option label small:not(.d-pp){display:block;font-weight:400;font-size:.
 ${B} .bk-pills .bk-option label{text-align:center}
 ${B} .bk-price small{display:block}
 ${B} .d-p4 .bk-price{display:block;text-align:center;margin-top:10px}
-${B} .bk-check label{display:block;font-weight:700;color:var(--navy);cursor:pointer}
+${B} .bk-check label{display:block;font-weight:700;color:var(--heading);cursor:pointer}
 ${B} .bk-check{display:flex}
 ${B}:has(.d-svc-real:checked) .d-durs{display:block}
 ${B} .d-next{opacity:.45;pointer-events:none}
 ${B}:not(:has(.d-p3 :invalid)) .d-confirm{opacity:1;pointer-events:auto}
 ${B}:not(:has(.d-p3 :invalid)) .d-fill-hint{display:none}
 ${B} .d-note{font-size:.85rem;color:var(--gold-dark);background:var(--gold-soft);padding:8px 14px;border-radius:var(--radius);margin:0 0 20px}
-${B} .bk-option label{display:block;padding:14px 16px;border:1.5px solid var(--line);border-radius:var(--radius);font-weight:700;color:var(--navy);cursor:pointer;transition:border-color .15s,background .15s}
+${B} .bk-option label{display:block;padding:14px 16px;border:1.5px solid var(--line);border-radius:var(--radius);font-weight:700;color:var(--heading);cursor:pointer;transition:border-color .15s,background .15s}
 ${B} .bk-pills .bk-option label{padding:10px 22px;border-radius:999px}
-${B} .bk-option label:hover{border-color:var(--navy-3)}
+${B} .bk-option label:hover{border-color:var(--heading)}
 ${B} .d-state:checked+label.bk-day,${B} .bk-option .d-state:checked+label{border-color:var(--gold);background:var(--gold-soft)}
-${B} .d-state:checked+label.bk-slot{background:var(--navy);border-color:var(--navy);color:#fff}
+${B} .d-state:checked+label.bk-slot{background:var(--strong);border-color:var(--strong);color:var(--on-strong)}
 ${B} .d-state:focus-visible+label{outline:3px solid var(--gold);outline-offset:2px}
 ${B} label.bk-slot,${B} label.bk-day{text-align:center;display:block}
 ${B} .bk-days label.bk-day{display:inline-block}
@@ -196,13 +196,13 @@ ${B}:has(#d-svc-any:checked) .d-p{display:none!important}
 ${B}:has(#d-svc-any:checked) .d-p1{display:block!important}
 ${B}:has(#d-svc-any:checked) [data-progress]{color:#9aa3b5!important}
 ${B}:has(#d-svc-any:checked) [data-progress] span{background:none!important;border-color:currentColor!important;color:inherit!important}
-${B}:has(#d-svc-any:checked) [data-progress="1"]{color:var(--navy)!important}
-${B}:has(#d-svc-any:checked) [data-progress="1"] span{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important}
+${B}:has(#d-svc-any:checked) [data-progress="1"]{color:var(--heading)!important}
+${B}:has(#d-svc-any:checked) [data-progress="1"] span{background:var(--strong)!important;border-color:var(--strong)!important;color:var(--on-strong)!important}
 label.bk-backdrop,label.bk-close{cursor:pointer}
-.price-table td label.price-link{display:inline-block;min-width:64px;padding:5px 10px;border-radius:999px;border:1.5px solid transparent;font-family:var(--serif);font-weight:700;font-size:1.08rem;color:var(--navy);cursor:pointer;transition:all .15s}
+.price-table td label.price-link{display:inline-block;min-width:64px;padding:5px 10px;border-radius:999px;border:1.5px solid transparent;font-family:var(--serif);font-weight:700;font-size:1.08rem;color:var(--heading);cursor:pointer;transition:all .15s}
 .price-table td label.price-link:hover{border-color:var(--gold);background:var(--gold-soft)}
 @media (max-width:640px){.price-table td label.price-link{min-width:0;padding:4px 5px;font-size:.95rem}}
-.nav label{color:var(--navy);font-weight:700;font-size:.98rem;padding:6px 0;cursor:pointer}
+.nav label{color:var(--heading);font-weight:700;font-size:.98rem;padding:6px 0;cursor:pointer}
 @media (max-width:820px){.nav label{padding:14px 0;border-bottom:1px solid var(--line);font-size:1.05rem}}
 `;
 
@@ -253,8 +253,8 @@ const mapSvg = `<div class="map map-static" role="img" aria-label="Map: Massage 
         </div>`;
 const mapCss = `.map-static{position:relative;min-height:380px}
 .map-static svg{position:absolute;inset:0;width:100%;height:100%}
-.map-label{position:absolute;left:16px;bottom:16px;background:#fff;border-radius:8px;padding:10px 14px;box-shadow:0 10px 24px -14px rgba(21,33,57,.5);border-left:3px solid var(--gold)}
-.map-label strong{display:block;font-family:var(--serif);color:var(--navy)}
+.map-label{position:absolute;left:16px;bottom:16px;background:var(--surface);border-radius:8px;padding:10px 14px;box-shadow:0 10px 24px -14px rgba(21,33,57,.5);border-left:3px solid var(--gold)}
+.map-label strong{display:block;font-family:var(--serif);color:var(--heading)}
 .map-label span{font-size:.85rem;color:var(--ink-soft)}`;
 
 // ---------- Website preview ----------
