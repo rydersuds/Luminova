@@ -22,6 +22,17 @@
     if (e.key === 'Escape') setMenu(false);
   });
 
+  // In-page links: scroll directly so they also work inside embedded/sandboxed previews.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a[href^="#"]');
+    if (!a || a.getAttribute('href').length < 2) return;
+    var target = document.getElementById(a.getAttribute('href').slice(1));
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try { history.replaceState(null, '', a.getAttribute('href')); } catch (err) { /* sandboxed */ }
+  });
+
   // Header border + sticky mobile booking button
   function onScroll() {
     header.classList.toggle('is-scrolled', window.scrollY > 8);
