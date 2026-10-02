@@ -536,6 +536,7 @@ address { font-style: normal; font-size: 1.15rem; margin-bottom: 1em; }
   --glow-c: rgba(201, 165, 92, .2);
   --page-tint: #f3efe7;
   --outline: rgba(27, 42, 69, .4);
+  --menu-bg: rgba(250, 248, 243, .96);
 }
 :root[data-theme="dark"], :root:has(#theme-toggle:checked) {
   --glass: linear-gradient(135deg, rgba(40, 56, 92, .62), rgba(22, 33, 58, .42));
@@ -549,6 +550,7 @@ address { font-style: normal; font-size: 1.15rem; margin-bottom: 1em; }
   --glow-c: rgba(130, 90, 200, .14);
   --page-tint: #0b1322;
   --outline: rgba(255, 255, 255, .35);
+  --menu-bg: rgba(19, 29, 50, .96);
 }
 
 /* Colour glows behind everything, so the glass has something to refract */
@@ -583,7 +585,14 @@ body::before {
   top: 10px; width: min(1180px, 100% - 20px); margin: 10px auto 0; border-radius: 22px;
   background: var(--glass-strong);
 }
-.site-header.is-scrolled { box-shadow: var(--glass-rim), var(--glass-drop); }
+/* The blur lives on a background layer, not the header itself: a backdrop-filter on the header
+   would stop the phone menu (which drops out of the header) from covering the page behind it. */
+.site-header { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; }
+.site-header::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge); box-shadow: var(--glass-rim), var(--glass-drop);
+}
 .header-inner { height: 74px; }
 
 /* Buttons: pill shaped, gold liquid with a specular top edge */
@@ -666,7 +675,7 @@ body::before {
   .header-inner { height: 64px; }
   .nav {
     top: 72px; left: 0; right: 0; border-radius: 20px; border: 1px solid var(--glass-edge);
-    background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    background: var(--menu-bg); -webkit-backdrop-filter: blur(30px) saturate(160%); backdrop-filter: blur(30px) saturate(160%);
     box-shadow: var(--glass-rim), var(--glass-drop);
   }
   .nav a { border-bottom-color: var(--glass-edge); }
