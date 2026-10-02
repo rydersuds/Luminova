@@ -118,22 +118,30 @@
       .day tr { display: grid; grid-template-columns: 84px 1fr; gap: 6px 12px; padding: 14px 0; border-bottom: 1px solid var(--glass-edge); }
       .day td { display: block; border: 0; padding: 0; }
       .day td:nth-child(n+3) { grid-column: 2; }
+      .day tr.confirm-row { display: block; padding: 0 0 12px; }
+      .day tr.confirm-row td { grid-column: 1 / -1; }
       .card { padding: 20px 18px; border-radius: 22px; }
       .tabs label small { display: none; }
       .day-row { grid-template-columns: 1fr auto; }
       .day-row .times { grid-column: 1 / -1; }
     }
     @media (max-width: 380px) { .admin-tag { display: none; } }
-    .confirm { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 16px; background: rgba(21, 33, 57, .45); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-    .confirm[hidden], .toast[hidden] { display: none; }
-    .confirm-box { width: min(420px, 100%); padding: 24px 24px 20px; border-radius: 22px; background: var(--glass-strong); border: 1px solid var(--glass-edge); box-shadow: var(--glass-rim), var(--glass-drop); }
-    .confirm-box h3 { margin: 0 0 6px; font-size: 1.3rem; }
-    .confirm-box p { margin: 0 0 18px; color: var(--ink-soft); }
-    .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-    .confirm-actions button { font: 700 .95rem var(--sans); padding: 10px 18px; border-radius: 999px; cursor: pointer; border: 1px solid transparent; background: var(--strong); color: var(--on-strong); }
-    .confirm-actions button.ghost { background: var(--glass-lite); color: var(--heading); border-color: var(--outline); }
-    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 410; padding: 11px 18px; border-radius: 999px; font-weight: 700; background: #1f6b45; color: #fff; box-shadow: 0 12px 30px -12px rgba(0,0,0,.5); }
-    .toast.err { background: #a33; }
+    /* Confirmations appear right where you clicked (embedded viewers can make fixed popups appear off-screen). */
+    .inline-confirm {
+      margin: 10px 0 4px; padding: 14px 16px; border-radius: 16px; text-align: left;
+      background: var(--glass-strong); border: 1px solid rgba(201, 165, 92, .7); box-shadow: var(--glass-rim), var(--glass-drop);
+      animation: ic-in .2s ease;
+    }
+    .inline-confirm strong { display: block; color: var(--heading); font-size: 1rem; }
+    .inline-confirm p { margin: 2px 0 12px; color: var(--ink-soft); font-size: .9rem; }
+    .ic-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    main.admin .ic-actions button { padding: 8px 16px; font-size: .9rem; }
+    main.admin .ic-actions .ic-ok.danger-ok { background: #b23b3b; color: #fff; }
+    .confirm-row td { padding: 0 8px 12px; border-bottom: 1px solid var(--glass-edge); }
+    @keyframes ic-in { from { opacity: 0; transform: translateY(-4px); } }
+    .toast { margin: 0; padding: 10px 16px; border-radius: 14px; font-weight: 700; background: rgba(63, 154, 102, .14); color: #2f7a4f; border: 1px solid rgba(63, 154, 102, .4); }
+    .toast.err { background: rgba(187, 68, 68, .12); color: #a33; border-color: rgba(187, 68, 68, .4); }
+    .toast[hidden] { display: none; }
   </style>
 </head>
 <body>
@@ -158,6 +166,7 @@
   </header>
 
   <main class="wrap admin">
+    <p class="toast" id="toast" role="status" hidden></p>
     <input class="tab-state" type="radio" name="tab" id="tab-appts" checked>
     <input class="tab-state" type="radio" name="tab" id="tab-hours">
     <input class="tab-state" type="radio" name="tab" id="tab-off">
@@ -228,17 +237,6 @@
     </section>
   </main>
 
-  <div class="confirm" id="confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
-    <div class="confirm-box">
-      <h3 id="confirm-title"></h3>
-      <p id="confirm-detail"></p>
-      <div class="confirm-actions">
-        <button type="button" class="ghost" id="confirm-no">Keep it</button>
-        <button type="button" id="confirm-ok">Confirm</button>
-      </div>
-    </div>
-  </div>
-  <div class="toast" id="toast" role="status" hidden></div>
 
   <script>
     const $ = (s) => document.querySelector(s);
@@ -258,30 +256,46 @@
     })();
 
     // ---------- In-page confirmation and notices (browser popups are blocked in embedded frames) ----------
-    function askConfirm(title, detail, okLabel) {
+    // Ask for confirmation right next to what was clicked. In a table, the question gets its own
+    // row under the booking; elsewhere it appears under the button's group.
+    function askConfirm(anchor, title, detail, okLabel, danger) {
+      document.querySelectorAll('.inline-confirm').forEach((el) => (el.closest('.confirm-row') || el).remove());
       return new Promise((resolve) => {
-        const dlg = $('#confirm');
-        $('#confirm-title').textContent = title;
-        $('#confirm-detail').textContent = detail || '';
-        $('#confirm-ok').textContent = okLabel || 'Confirm';
-        dlg.hidden = false;
-        $('#confirm-ok').focus();
-        const done = (answer) => {
-          dlg.hidden = true;
-          dlg.removeEventListener('click', onClick); document.removeEventListener('keydown', onKey);
-          resolve(answer);
-        };
-        const onClick = (e) => {
-          if (e.target.closest('#confirm-ok')) done(true);
-          else if (e.target.closest('#confirm-no') || e.target === dlg) done(false);
-        };
-        const onKey = (e) => { if (e.key === 'Escape') done(false); };
-        dlg.addEventListener('click', onClick); document.addEventListener('keydown', onKey);
+        const box = document.createElement('div');
+        box.className = 'inline-confirm';
+        box.setAttribute('role', 'alertdialog');
+        box.innerHTML = '<strong></strong><p></p><div class="ic-actions"><button type="button" class="ghost ic-no">Keep it</button><button type="button" class="ic-ok"></button></div>';
+        box.querySelector('strong').textContent = title;
+        box.querySelector('p').textContent = detail || '';
+        const ok = box.querySelector('.ic-ok');
+        ok.textContent = okLabel || 'Confirm';
+        if (danger) ok.classList.add('danger-ok');
+        let holder = box;
+        const row = anchor.closest('tr');
+        if (row) {
+          holder = document.createElement('tr');
+          holder.className = 'confirm-row';
+          const td = document.createElement('td');
+          td.colSpan = row.children.length;
+          td.appendChild(box); holder.appendChild(td);
+          row.after(holder);
+        } else {
+          (anchor.closest('.quick, .actions') || anchor).after(box);
+        }
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        ok.focus({ preventScroll: true });
+        const done = (answer) => { holder.remove(); resolve(answer); };
+        box.addEventListener('click', (e) => {
+          if (e.target.closest('.ic-ok')) done(true);
+          else if (e.target.closest('.ic-no')) done(false);
+        });
+        box.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(false); });
       });
     }
     function toast(text, isError) {
       const t = $('#toast');
       t.textContent = text; t.className = 'toast' + (isError ? ' err' : ''); t.hidden = false;
+      t.scrollIntoView({ block: 'nearest' });
       clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 3500);
     }
 
@@ -333,7 +347,7 @@
 
     document.addEventListener('click', async (e) => {
       const c = e.target.closest('[data-cancel]');
-      if (c && await askConfirm(`Cancel the booking for ${c.dataset.name}?`, 'Remember to let them know.', 'Cancel booking')) {
+      if (c && await askConfirm(c, `Cancel the booking for ${c.dataset.name}?`, 'Remember to let them know.', 'Cancel booking', true)) {
         try { await api(`/api/admin/bookings/${c.dataset.cancel}/cancel`, { method: 'POST' }); loadBookings(); }
         catch (err) { toast(err.message, true); }
       }
@@ -414,7 +428,7 @@
       } catch (err) { say(err.message); }
     });
     $('#avail-reset').addEventListener('click', async () => {
-      if (!await askConfirm('Reset hours and booking rules?', 'This goes back to the original weekly hours and rules.', 'Reset')) return;
+      if (!await askConfirm($('#avail-reset'), 'Reset hours and booking rules?', 'This goes back to the original weekly hours and rules.', 'Reset')) return;
       try { renderAvailability(await api('/api/admin/availability', { method: 'DELETE' })); say('Reset to defaults.', true); }
       catch (err) { say(err.message); }
     });
@@ -430,7 +444,7 @@
     document.querySelectorAll('[data-day-off]').forEach((b) => b.addEventListener('click', async () => {
       const date = addDays(localToday(), Number(b.dataset.dayOff));
       const label = b.dataset.dayOff === '0' ? 'today' : 'tomorrow';
-      if (!await askConfirm(`Take ${label} off?`, `${fmtDay(date)} will be blocked for new bookings. Existing appointments stay booked.`, `Take ${label} off`)) return;
+      if (!await askConfirm(b, `Take ${label} off?`, `${fmtDay(date)} will be blocked for new bookings. Existing appointments stay booked.`, `Take ${label} off`)) return;
       const msg = $('#quick-msg');
       try {
         await api('/api/admin/blocks', { method: 'POST', body: JSON.stringify({ date, allDay: true, reason: 'Day off' }) });
