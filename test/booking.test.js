@@ -142,3 +142,37 @@ test('static files are served and traversal is blocked', async () => {
   assert.equal((await get('/..%2fserver.js')).status, 404);
   assert.equal((await get('/%2e%2e/config.js')).status, 404);
 });
+
+test('admin can change weekly hours and booking rules without a restart', async () => {
+  const put = (body, headers = auth) => fetch(base + '/api/admin/availability', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body),
+  });
+  const current = await (await get('/api/admin/availability', auth)).json();
+  assert.equal(current.saved, false);
+  assert.equal(current.slotStepMinutes, 30);
+  assert.equal((await put(current, {})).status, 401, 'needs the admin password');
+
+  // Wednesdays 12:00–16:00, hourly starts, no break.
+  const hours = { ...current.hours, 3: ['12:00', '16:00'] };
+  let res = await put({ ...current, hours, slotStepMinutes: 60, bufferMinutes: 0 });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await slots(), ['12:00', '13:00', '14:00', '15:00']);
+  assert.deepEqual((await (await get('/api/config')).json()).hours[3], ['12:00', '16:00']);
+
+  // Close Wednesdays entirely.
+  res = await put({ ...current, hours: { ...current.hours, 3: null } });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await slots(), []);
+
+  // Bad input is rejected and leaves the saved settings alone.
+  res = await put({ ...current, hours: { ...current.hours, 3: ['16:00', '12:00'] } });
+  assert.equal(res.status, 400);
+  res = await put({ ...current, slotStepMinutes: 7 });
+  assert.equal(res.status, 400);
+  assert.deepEqual(await slots(), []);
+
+  // Reset to the defaults in config.js.
+  res = await fetch(base + '/api/admin/availability', { method: 'DELETE', headers: auth });
+  assert.equal(res.status, 200);
+  assert.equal((await slots())[0], '09:00');
+});

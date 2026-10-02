@@ -287,7 +287,7 @@ html = html.slice(0, start) + booker + html.slice(end);
 html = html
   .replace('<link rel="stylesheet" href="fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
   .replace('<link rel="stylesheet" href="styles.css">', () => `<style>\n${read('styles.css')}\n${css}\n${mapCss}</style>`)
-  .replace('<script src="script.js"></script>', () => `<script>\n${inline(read('script.js'))}\n</script>`)
+  .replace('<script src="script.js"></script>', () => `<script>window.STUDIO_HOURS = ${JSON.stringify(config.hours)};</script>\n<script>\n${inline(read('script.js'))}\n</script>`)
   .replace('<script src="booking.js"></script>', '')
   // Map and directions point at Google; the preview shows a drawn map instead.
   .replace(/<div class="map">[\s\S]*?<\/div>/, () => mapSvg)
@@ -370,7 +370,32 @@ admin = admin
     tr:has(.cx:checked) .c-yes { display: none; }
     tr:has(.cx:checked) .c-undo { display: inline; }
   </style>`);
-if (/<script|id="list"><p class="empty">/.test(admin)) throw new Error('Admin preview still depends on the server');
+// Hours tab: render the default weekly schedule; open/closed toggles work with CSS alone.
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const weekRows = [1, 2, 3, 4, 5, 6, 0].map((d) => {
+  const h = config.hours[d];
+  return `<div class="day-row" data-day="${d}">
+          <strong>${DAY_NAMES[d]}</strong>
+          <label class="switch"><input type="checkbox" class="open"${h ? ' checked' : ''}> Open</label>
+          <div class="times">
+            <input type="time" class="from" step="900" value="${h ? h[0] : '09:00'}" aria-label="${DAY_NAMES[d]} opening time">
+            <span class="to">to</span>
+            <input type="time" class="until" step="900" value="${h ? h[1] : '17:00'}" aria-label="${DAY_NAMES[d]} closing time">
+            <span class="closed-note">Closed</span>
+          </div>
+        </div>`;
+}).join('');
+const selectValue = (html, name, value) => html.replace(new RegExp(`(<select name="${name}">[\\s\\S]*?<option value="${value}")`), '$1 selected');
+admin = admin
+  .replace('<div class="week" id="week"></div>', () => `<div class="week" id="week">${weekRows}</div>`)
+  .replace('<form id="avail-form" novalidate>', '<div id="avail-form">')
+  .replace(/(<p class="msg" id="avail-msg" role="status"><\/p>\s*<\/div>\s*)<\/form>/, '$1</div>')
+  .replace('<button type="submit">Save hours</button>', '<button type="button">Save hours</button>')
+  .replace('</style>', `  .day-row:has(.open:not(:checked)) .times input, .day-row:has(.open:not(:checked)) .times .to { display: none; }
+    .day-row:has(.open:not(:checked)) .closed-note { display: inline; }
+  </style>`);
+for (const k of ['slotStepMinutes', 'bufferMinutes', 'minNoticeMinutes', 'maxDaysAhead']) admin = selectValue(admin, k, config[k]);
+if (/<script|id="list"><p class="empty">|<form/.test(admin)) throw new Error('Admin preview still depends on the server');
 assertOffline('admin-preview.html', admin);
 write('admin-preview.html', admin);
 

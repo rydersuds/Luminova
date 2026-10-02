@@ -25,10 +25,13 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 - Every "Book" button opens a booking panel that slides in over the current page, so visitors never lose their place. "Book this" on a service card opens it with that service already selected. The panel closes with ×, Escape or a click outside it.
 - Clients pick a service and session length, then a date and time, then enter their details. They get a confirmation number and an "Add to calendar" file.
 - Available times come from the opening hours in `config.js`, minus existing bookings (with a 15-minute turnover buffer) and any blocked time. Two people can't book the same slot.
-- In the admin page (`/admin`) the owner can see upcoming appointments, cancel them, and block off time for holidays, breaks or phone bookings.
+- The admin page (`/admin`) has three tabs:
+  - **Appointments:** upcoming bookings with totals; cancel with one click.
+  - **Hours:** the weekly schedule (open/closed and times for each day) and booking rules (start-time interval, break between clients, minimum notice, how far ahead). Saving applies immediately to the booking form and the hours shown on the website, with no restart. "Reset to defaults" goes back to `config.js`.
+  - **Time off:** one-tap "Take today off" / "Take tomorrow off", or block any date and time range.
 - Prices come from the price list in `config.js`. A service can only be booked for the session lengths that have a price (for example, hot & cold stone is 60 or 90 minutes). Clients who tick "first visit" get the new-client discount (10%). Each booking stores its price and total, and the admin page shows expected revenue.
 - The pricing table and service cards on the site show the same prices. Clicking a price opens booking with that massage and length already selected.
-- To change prices, hours, services, buffer, notice period or how far ahead clients can book, edit `config.js`.
+- `config.js` holds the default hours and rules (used until hours are saved in the admin page). To change prices, services, buffer, notice period or how far ahead clients can book, edit `config.js`.
 
 ## Project layout
 

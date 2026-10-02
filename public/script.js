@@ -91,12 +91,49 @@
     var wd = new Intl.DateTimeFormat('en-CA', { weekday: 'short', timeZone: 'America/Edmonton' }).format(new Date());
     day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(wd);
   } catch (e) { day = new Date().getDay(); }
-  var weekend = day === 0 || day === 6;
   var todayEl = document.querySelector('[data-today-hours]');
-  if (todayEl) todayEl.textContent = weekend ? '9:30 am – 5:00 pm' : '9:00 am – 8:00 pm';
-  document.querySelectorAll('.hours tr').forEach(function (row) {
-    if (row.dataset.days.split(',').indexOf(String(day)) !== -1) row.classList.add('is-today');
-  });
+  var hoursBody = document.querySelector('.hours tbody');
+  function fmt12(hhmm) {
+    var h = +hhmm.slice(0, 2), m = hhmm.slice(3);
+    return ((h % 12) || 12) + ':' + m + ' ' + (h < 12 ? 'am' : 'pm');
+  }
+  function markToday() {
+    document.querySelectorAll('.hours tr').forEach(function (row) {
+      row.classList.toggle('is-today', row.dataset.days.split(',').indexOf(String(day)) !== -1);
+    });
+  }
+  // Rebuild the hours table and "Open today" from the hours saved in the admin page.
+  function showHours(hours) {
+    var names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    var order = [1, 2, 3, 4, 5, 6, 0];
+    var label = function (d) { return hours[d] ? fmt12(hours[d][0]) + ' – ' + fmt12(hours[d][1]) : 'Closed'; };
+    var groups = [];
+    order.forEach(function (d) {
+      var last = groups[groups.length - 1];
+      if (last && label(last.days[last.days.length - 1]) === label(d)) last.days.push(d);
+      else groups.push({ days: [d] });
+    });
+    hoursBody.innerHTML = groups.map(function (g) {
+      var first = names[g.days[0]], lastName = names[g.days[g.days.length - 1]];
+      var title = g.days.length > 1 ? first + ' – ' + lastName : first;
+      return '<tr data-days="' + g.days.join(',') + '"><th scope="row">' + title + '</th><td>' + label(g.days[0]) + '</td></tr>';
+    }).join('');
+    if (todayEl) {
+      todayEl.textContent = label(day);
+      var card = todayEl.closest('.hero-card');
+      if (card) card.classList.toggle('is-closed', !hours[day]);
+      var lbl = card && card.querySelector('.hero-card-label');
+      if (lbl) lbl.textContent = hours[day] ? 'Open today' : 'Closed today';
+    }
+    markToday();
+  }
+  markToday();
+  if (hoursBody && window.STUDIO_HOURS) showHours(window.STUDIO_HOURS); // offline preview
+  else if (hoursBody && window.fetch && location.protocol !== 'file:') {
+    fetch('/api/config').then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (c) { if (c && c.hours) showHours(c.hours); })
+      .catch(function () { /* keep the built-in hours */ });
+  }
 
   // Footer year
   var y = document.querySelector('[data-year]');

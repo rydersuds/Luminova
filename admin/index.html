@@ -45,18 +45,60 @@
     .msg { font-size: .9rem; min-height: 1.3em; margin: 8px 0 0; }
     .msg.err { color: #a33; }
     .table-wrap { overflow-x: auto; }
+    .sub { margin: -6px 0 16px; color: var(--ink-soft); }
+    /* Tabs (radio buttons, so they also work without JavaScript) */
+    .tab-state { position: absolute; opacity: 0; pointer-events: none; }
+    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .tabs label { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px 16px; border-radius: 10px; background: #fff; border: 1.5px solid var(--line);
+      font-size: 1.05rem; font-weight: 700; color: var(--navy); text-transform: none; letter-spacing: 0; cursor: pointer; box-shadow: 0 10px 24px -22px rgba(21,33,57,.5); }
+    .tabs label small { font-weight: 400; font-size: .82rem; color: var(--ink-soft); }
+    .tabs .ico { font-size: 1.3rem; line-height: 1; margin-bottom: 4px; }
+    .tabs label:hover { border-color: var(--gold); }
+    #tab-appts:checked ~ .tabs [for="tab-appts"], #tab-hours:checked ~ .tabs [for="tab-hours"], #tab-off:checked ~ .tabs [for="tab-off"] { border-color: var(--gold); background: var(--gold-soft); }
+    #tab-appts:focus-visible ~ .tabs [for="tab-appts"], #tab-hours:focus-visible ~ .tabs [for="tab-hours"], #tab-off:focus-visible ~ .tabs [for="tab-off"] { outline: 3px solid var(--gold); outline-offset: 2px; }
+    .tab-pane { display: none; }
+    #tab-appts:checked ~ .p-appts, #tab-hours:checked ~ .p-hours, #tab-off:checked ~ .p-off { display: block; }
+    .quick { display: flex; flex-wrap: wrap; gap: 10px; }
+    .quick button { padding: 12px 20px; font-size: 1rem; background: var(--gold); border-color: var(--gold); }
+    h3.minor { font-size: 1rem; margin: 22px 0 10px; }
+    @media (max-width: 560px) { .tabs label { padding: 10px; font-size: .95rem; } .tabs label small { display: none; } }
+    .week { display: grid; gap: 6px; margin-bottom: 18px; }
+    .day-row { display: grid; grid-template-columns: 130px 110px 1fr; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; background: var(--cream); }
+    .day-row strong { font-size: .95rem; }
+    .day-row .times { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .day-row .times input { width: 128px; }
+    .day-row .closed-note { color: var(--ink-soft); font-size: .9rem; display: none; }
+    .day-row.is-closed .times input, .day-row.is-closed .times .to { display: none; }
+    .day-row.is-closed .closed-note { display: inline; }
+    .switch { flex-direction: row; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: .9rem; color: var(--navy); cursor: pointer; }
+    .switch input { width: 18px; height: 18px; accent-color: var(--gold-dark); }
+    .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 16px; margin-bottom: 18px; }
+    select { font: inherit; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 4px; color: var(--navy); background: #fff; text-transform: none; letter-spacing: 0; font-weight: 400; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .actions .msg { margin: 0; }
+    .msg.ok { color: #2f7a4f; }
+    @media (max-width: 560px) { .day-row { grid-template-columns: 1fr auto; } .day-row .times { grid-column: 1 / -1; } }
   </style>
 </head>
 <body>
   <header>
     <div class="wrap">
-      <h1>Massage <em>Fenix</em> · Bookings</h1>
+      <h1>Massage <em>Fenix</em> · Admin</h1>
       <a href="/">View site</a>
     </div>
   </header>
 
   <main class="wrap">
-    <section class="card">
+    <input class="tab-state" type="radio" name="tab" id="tab-appts" checked>
+    <input class="tab-state" type="radio" name="tab" id="tab-hours">
+    <input class="tab-state" type="radio" name="tab" id="tab-off">
+    <nav class="tabs" aria-label="Admin sections">
+      <label for="tab-appts"><span class="ico" aria-hidden="true">📅</span>Appointments<small>Who's coming</small></label>
+      <label for="tab-hours"><span class="ico" aria-hidden="true">🕘</span>Hours<small>Your weekly schedule</small></label>
+      <label for="tab-off"><span class="ico" aria-hidden="true">🌴</span>Time off<small>Holidays &amp; breaks</small></label>
+    </nav>
+
+    <section class="card tab-pane p-appts">
       <h2>Appointments</h2>
       <div class="toolbar">
         <label>From<input type="date" id="from"></label>
@@ -68,9 +110,42 @@
       <div id="list"><p class="empty">Loading…</p></div>
     </section>
 
-    <section class="card">
-      <h2>Block off time</h2>
-      <p style="margin-top:0;color:var(--ink-soft)">Blocked times won't be offered to clients: holidays, breaks, appointments booked by phone.</p>
+    <section class="card tab-pane p-hours" id="availability">
+      <h2>Hours</h2>
+      <p class="sub">Your regular weekly hours and booking rules. Changes apply to the booking form as soon as you save.</p>
+      <form id="avail-form" novalidate>
+        <div class="week" id="week"></div>
+        <div class="rules">
+          <label>Start times every
+            <select name="slotStepMinutes"><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="60">hour</option></select>
+          </label>
+          <label>Break between clients
+            <select name="bufferMinutes"><option value="0">None</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">1 hour</option></select>
+          </label>
+          <label>Minimum notice
+            <select name="minNoticeMinutes"><option value="0">None</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option><option value="720">12 hours</option><option value="1440">1 day</option><option value="2880">2 days</option></select>
+          </label>
+          <label>Clients can book up to
+            <select name="maxDaysAhead"><option value="14">2 weeks ahead</option><option value="30">30 days ahead</option><option value="60">60 days ahead</option><option value="90">90 days ahead</option><option value="180">6 months ahead</option></select>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit">Save hours</button>
+          <button type="button" class="ghost" id="avail-reset">Reset to defaults</button>
+          <p class="msg" id="avail-msg" role="status"></p>
+        </div>
+      </form>
+    </section>
+
+    <section class="card tab-pane p-off">
+      <h2>Time off</h2>
+      <p class="sub">Times you block here won't be offered to clients. Use it for holidays, breaks or appointments booked by phone.</p>
+      <div class="quick">
+        <button type="button" data-day-off="0">Take today off</button>
+        <button type="button" data-day-off="1">Take tomorrow off</button>
+      </div>
+      <p class="msg" id="quick-msg" role="status"></p>
+      <h3 class="minor">Or block a specific time</h3>
       <form class="toolbar" id="block-form">
         <label>Date<input type="date" name="date" required></label>
         <label>Start<input type="time" name="start" value="12:00" step="900"></label>
@@ -170,6 +245,78 @@
     $('#block-form').date.value = localToday();
     setRange(30);
     loadBlocks();
+    // ---------- Hours & availability ----------
+    const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const DAY_INDEX = [1, 2, 3, 4, 5, 6, 0]; // show the week Monday-first; the server uses 0 = Sunday
+    const availForm = $('#avail-form'), availMsg = $('#avail-msg');
+    function ensureOption(select, value) {
+      if (![...select.options].some((o) => o.value === String(value))) select.add(new Option(`${value} minutes`, value));
+      select.value = String(value);
+    }
+    function renderAvailability(a) {
+      $('#week').innerHTML = DAY_INDEX.map((d, i) => {
+        const h = a.hours[d];
+        return `<div class="day-row${h ? '' : ' is-closed'}" data-day="${d}">
+          <strong>${DAYS[i]}</strong>
+          <label class="switch"><input type="checkbox" class="open"${h ? ' checked' : ''}> Open</label>
+          <div class="times">
+            <input type="time" class="from" step="900" value="${h ? h[0] : '09:00'}" aria-label="${DAYS[i]} opening time">
+            <span class="to">to</span>
+            <input type="time" class="until" step="900" value="${h ? h[1] : '17:00'}" aria-label="${DAYS[i]} closing time">
+            <span class="closed-note">Closed</span>
+          </div>
+        </div>`;
+      }).join('');
+      for (const k of ['slotStepMinutes', 'bufferMinutes', 'minNoticeMinutes', 'maxDaysAhead']) ensureOption(availForm[k], a[k]);
+    }
+    $('#week').addEventListener('change', (e) => {
+      if (e.target.matches('.open')) e.target.closest('.day-row').classList.toggle('is-closed', !e.target.checked);
+    });
+    function collectAvailability() {
+      const hours = {};
+      document.querySelectorAll('.day-row').forEach((row) => {
+        hours[row.dataset.day] = row.querySelector('.open').checked ? [row.querySelector('.from').value, row.querySelector('.until').value] : null;
+      });
+      const num = (k) => Number(availForm[k].value);
+      return { hours, slotStepMinutes: num('slotStepMinutes'), bufferMinutes: num('bufferMinutes'), minNoticeMinutes: num('minNoticeMinutes'), maxDaysAhead: num('maxDaysAhead') };
+    }
+    function say(text, ok) { availMsg.className = 'msg ' + (ok ? 'ok' : 'err'); availMsg.textContent = text; }
+    async function loadAvailability() {
+      try { renderAvailability(await api('/api/admin/availability')); } catch (err) { say(err.message); }
+    }
+    availForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        renderAvailability(await api('/api/admin/availability', { method: 'PUT', body: JSON.stringify(collectAvailability()) }));
+        say('Saved. The booking form now uses these hours.', true);
+      } catch (err) { say(err.message); }
+    });
+    $('#avail-reset').addEventListener('click', async () => {
+      if (!confirm('Reset hours and booking rules to the original defaults?')) return;
+      try { renderAvailability(await api('/api/admin/availability', { method: 'DELETE' })); say('Reset to defaults.', true); }
+      catch (err) { say(err.message); }
+    });
+    loadAvailability();
+
+    // ---------- Tabs and quick time off ----------
+    const tabFromHash = { '#hours': 'tab-hours', '#time-off': 'tab-off', '#appointments': 'tab-appts' }[location.hash];
+    if (tabFromHash) document.getElementById(tabFromHash).checked = true;
+    document.querySelectorAll('.tab-state').forEach((r) => r.addEventListener('change', () => {
+      const hash = { 'tab-hours': '#hours', 'tab-off': '#time-off', 'tab-appts': '#appointments' }[r.id];
+      history.replaceState(null, '', hash);
+    }));
+    document.querySelectorAll('[data-day-off]').forEach((b) => b.addEventListener('click', async () => {
+      const date = addDays(localToday(), Number(b.dataset.dayOff));
+      const label = b.dataset.dayOff === '0' ? 'today' : 'tomorrow';
+      if (!confirm(`Block all of ${label} (${fmtDay(date)})? Existing appointments stay booked.`)) return;
+      const msg = $('#quick-msg');
+      try {
+        await api('/api/admin/blocks', { method: 'POST', body: JSON.stringify({ date, allDay: true, reason: 'Day off' }) });
+        msg.className = 'msg ok'; msg.textContent = `Done. Nobody can book ${label} now.`;
+        loadBlocks();
+      } catch (err) { msg.className = 'msg err'; msg.textContent = err.message; }
+    }));
+
   </script>
 </body>
 </html>

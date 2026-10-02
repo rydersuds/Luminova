@@ -46,6 +46,10 @@ db.exec(`
     reason TEXT NOT NULL DEFAULT ''
   );
   CREATE INDEX IF NOT EXISTS blocks_date ON blocks (date);
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `);
 // Columns added after the first release; add them to existing databases.
 const bookingCols = db.prepare('PRAGMA table_info(bookings)').all().map((c) => c.name);
@@ -54,6 +58,9 @@ if (!bookingCols.includes('total')) db.exec('ALTER TABLE bookings ADD COLUMN tot
 if (!bookingCols.includes('first_visit')) db.exec('ALTER TABLE bookings ADD COLUMN first_visit INTEGER NOT NULL DEFAULT 0');
 
 const q = {
+  getSetting: db.prepare('SELECT value FROM settings WHERE key = ?'),
+  setSetting: db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'),
+  deleteSetting: db.prepare('DELETE FROM settings WHERE key = ?'),
   bookingsOn: db.prepare(`SELECT start_min, end_min FROM bookings WHERE date = ? AND status = 'confirmed'`),
   blocksOn: db.prepare(`SELECT start_min, end_min FROM blocks WHERE date = ?`),
   insertBooking: db.prepare(`INSERT INTO bookings (ref, service_id, service_name, duration, date, start_min, end_min, name, phone, email, notes, price, total, first_visit)
@@ -94,22 +101,63 @@ function nowLocal() {
 // ---------- Availability ----------
 function findService(id) { return config.services.find((s) => s.id === id); }
 
+// ---------- Availability settings ----------
+// Weekly hours and booking rules. config.js holds the defaults; the admin page can save
+// overrides to the database, which take effect immediately without a restart.
+const AVAILABILITY_KEYS = ['hours', 'slotStepMinutes', 'bufferMinutes', 'minNoticeMinutes', 'maxDaysAhead'];
+const SLOT_STEPS = [15, 20, 30, 60];
+function defaultAvailability() {
+  return Object.fromEntries(AVAILABILITY_KEYS.map((k) => [k, structuredClone(config[k])]));
+}
+function getAvailability() {
+  const row = q.getSetting.get('availability');
+  if (!row) return defaultAvailability();
+  try { return { ...defaultAvailability(), ...JSON.parse(row.value) }; } catch { return defaultAvailability(); }
+}
+function validateAvailability(b) {
+  const errors = [];
+  const out = {};
+  if (!b || typeof b !== 'object' || !b.hours || typeof b.hours !== 'object') return { errors: ['Weekly hours are missing.'] };
+  out.hours = {};
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  for (let d = 0; d < 7; d++) {
+    const h = b.hours[d] ?? b.hours[String(d)];
+    if (h === null || h === undefined || h === false) { out.hours[d] = null; continue; }
+    if (!Array.isArray(h) || h.length !== 2 || !TIME_RE.test(h[0]) || !TIME_RE.test(h[1])) { errors.push(`${DAYS[d]}: enter an opening and closing time.`); continue; }
+    if (toMin(h[1]) - toMin(h[0]) < 30) { errors.push(`${DAYS[d]}: closing must be at least 30 minutes after opening.`); continue; }
+    out.hours[d] = [h[0], h[1]];
+  }
+  if (Object.values(out.hours).every((h) => h === null) && !errors.length) errors.push('Open at least one day a week.');
+  const int = (key, min, max, label) => {
+    const v = Number(b[key]);
+    if (!Number.isInteger(v) || v < min || v > max) errors.push(`${label} must be between ${min} and ${max}.`);
+    else out[key] = v;
+  };
+  if (!SLOT_STEPS.includes(Number(b.slotStepMinutes))) errors.push('Start times must be every 15, 20, 30 or 60 minutes.');
+  else out.slotStepMinutes = Number(b.slotStepMinutes);
+  int('bufferMinutes', 0, 120, 'Break between appointments (minutes)');
+  int('minNoticeMinutes', 0, 7 * 24 * 60, 'Minimum notice (minutes)');
+  int('maxDaysAhead', 1, 365, 'Booking window (days)');
+  return { errors, value: out };
+}
+
 function availableSlots(date, duration) {
   if (!isValidDate(date)) return [];
+  const a = getAvailability();
   const now = nowLocal();
-  if (date < now.date || date > addDays(now.date, config.maxDaysAhead)) return [];
-  const hours = config.hours[dayOfWeek(date)];
+  if (date < now.date || date > addDays(now.date, a.maxDaysAhead)) return [];
+  const hours = a.hours[dayOfWeek(date)];
   if (!hours) return [];
   const open = toMin(hours[0]);
   const close = toMin(hours[1]);
-  const buf = config.bufferMinutes;
+  const buf = a.bufferMinutes;
   const busy = [
     ...q.bookingsOn.all(date).map((b) => [b.start_min - buf, b.end_min + buf]),
     ...q.blocksOn.all(date).map((b) => [b.start_min, b.end_min]),
   ];
-  const earliest = date === now.date ? now.min + config.minNoticeMinutes : -1;
+  const earliest = date === now.date ? now.min + a.minNoticeMinutes : -1;
   const slots = [];
-  for (let t = open; t + duration <= close; t += config.slotStepMinutes) {
+  for (let t = open; t + duration <= close; t += a.slotStepMinutes) {
     if (t < earliest) continue;
     if (busy.some(([s, e]) => t < e && t + duration > s)) continue;
     slots.push(fmtMin(t));
@@ -265,8 +313,8 @@ async function handle(req, res) {
   if (p === '/api/config' && req.method === 'GET') {
     return send(res, 200, {
       timezone: config.timezone,
-      hours: config.hours,
-      maxDaysAhead: config.maxDaysAhead,
+      hours: getAvailability().hours,
+      maxDaysAhead: getAvailability().maxDaysAhead,
       today: nowLocal().date,
       currency: config.currency,
       newClientDiscountPercent: config.newClientDiscountPercent,
@@ -337,6 +385,23 @@ async function handle(req, res) {
     if ((m = p.match(/^\/api\/admin\/bookings\/(\d+)\/cancel$/)) && req.method === 'POST') {
       const r = q.cancelBooking.run(Number(m[1]));
       return r.changes ? send(res, 200, { ok: true }) : send(res, 404, { error: 'Booking not found or already cancelled.' });
+    }
+
+    if (p === '/api/admin/availability' && req.method === 'GET') {
+      const saved = !!q.getSetting.get('availability');
+      return send(res, 200, { ...getAvailability(), saved, defaults: defaultAvailability(), slotSteps: SLOT_STEPS }, { 'Cache-Control': 'no-store' });
+    }
+
+    if (p === '/api/admin/availability' && req.method === 'PUT') {
+      const { errors, value } = validateAvailability(await readJson(req));
+      if (errors.length) return send(res, 400, { error: errors.join(' '), errors });
+      q.setSetting.run('availability', JSON.stringify(value));
+      return send(res, 200, { ...value, saved: true });
+    }
+
+    if (p === '/api/admin/availability' && req.method === 'DELETE') {
+      q.deleteSetting.run('availability');
+      return send(res, 200, { ...defaultAvailability(), saved: false });
     }
 
     if (p === '/api/admin/blocks' && req.method === 'GET') {

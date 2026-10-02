@@ -193,6 +193,8 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .hero-card-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #4a9a6a; box-shadow: 0 0 0 4px rgba(74, 154, 106, .2); }
 .hero-card-hours { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; margin: .35em 0 .15em !important; color: var(--heading); }
 .hero-card-addr { font-size: .9rem; color: var(--ink-soft); }
+.hero-card.is-closed .hero-card-label { color: var(--ink-soft); }
+.hero-card.is-closed .hero-card-label::before { background: #b8bfcc; box-shadow: none; }
 
 /* Sections */
 .section { padding: clamp(64px, 9vw, 120px) 0; }
