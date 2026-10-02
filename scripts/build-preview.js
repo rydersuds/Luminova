@@ -321,11 +321,11 @@ html = html
   .replace(/<a href="#booking" data-book-service="([\w-]+)" data-book-duration="\d+"([^>]*)>([^<]*)<\/a>/g, '<label class="price-link" for="d-svc-$1"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#booking"([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-any"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#" data-close-booking([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-none"$2>$3</label>');
-html = html.replace(/<a class="footer-staff" href="\/admin\/login">([\s\S]*?)<\/a>/, '<span class="footer-staff" title="Opens the staff login on the live site">$1</span>');
+// Staff login opens a preview of the login page, then the admin, over the website.
+html = html.replace(/<a class="footer-staff" href="\/admin\/login">([\s\S]*?)<\/a>/, '<label class="footer-staff" for="staff-login">$1</label>');
 if (html.includes('href="/admin/login"')) throw new Error('Staff login link not converted in preview');
 if (/href="#booking"|data-close-booking/.test(html)) throw new Error('Unconverted booking link left in preview');
-assertOffline('preview.html', html);
-write('preview.html', html);
+// (written further down, once the admin and login previews exist)
 
 // ---------- Admin dashboard preview (sample bookings, no server) ----------
 const sample = [
@@ -436,6 +436,56 @@ const login = sitePage(fs.readFileSync(path.join(__dirname, '..', 'admin', 'logi
 if (/<form|<script/.test(login)) throw new Error('Login preview still needs the server');
 assertOffline('login-preview.html', login);
 write('login-preview.html', login);
+
+// ---------- Website preview: staff login -> admin, without a server ----------
+const loginFile = fs.readFileSync(path.join(__dirname, '..', 'admin', 'login.html'), 'utf8');
+const loginCss = loginFile.match(/<style>([\s\S]*?)<\/style>/)[1];
+const loginCard = loginFile.match(/<div class="login-card">[\s\S]*?<a class="back"[\s\S]*?<\/a>\s*<\/div>/)[0]
+  .replace(/<a class="brand" href="\/"([^>]*)>/, '<span class="brand"$1>').replace('</svg>\n        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>\n      </a>', '</svg>\n        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>\n      </span>')
+  .replace('<!--MESSAGE-->', '<p class="login-msg login-note">Preview: any password works here. On the live site it\'s your staff password.</p>')
+  .replace('<form method="post" action="/admin/login">', '<div class="login-form">')
+  .replace(/<button class="btn btn-gold" type="submit">Log in<\/button>\s*<\/form>/, '<label class="btn btn-gold" for="staff-admin">Log in</label>\n      </div>')
+  .replace(/<a class="back" href="\/">([\s\S]*?)<\/a>/, '<label class="back" for="staff-none">$1</label>');
+if (/<form|<a class="brand"|href="\/"/.test(loginCard)) throw new Error('Login card still links to the server');
+const staffOverlay = `
+  <input class="staff-state" type="radio" name="staff" id="staff-none" checked>
+  <input class="staff-state" type="radio" name="staff" id="staff-login">
+  <input class="staff-state" type="radio" name="staff" id="staff-admin">
+  <div class="staff-overlay so-login" role="dialog" aria-label="Staff login preview">
+    <label class="staff-scrim" for="staff-none" aria-label="Close"></label>
+    ${loginCard}
+  </div>
+  <div class="staff-overlay so-admin" role="dialog" aria-label="Admin preview">
+    <label class="staff-back" for="staff-none">← Back to website</label>
+    <iframe title="Admin preview" srcdoc="${admin.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></iframe>
+  </div>`;
+const staffCss = `${loginCss}
+.staff-state{position:absolute;opacity:0;pointer-events:none}
+.staff-overlay{position:fixed;inset:0;z-index:300;display:none}
+body:has(#staff-login:checked) .so-login{display:grid;place-items:center;padding:24px 16px;overflow:auto}
+body:has(#staff-admin:checked) .so-admin{display:block}
+html:has(#staff-login:checked),html:has(#staff-admin:checked){overflow:hidden}
+.staff-scrim{position:absolute;inset:0;background:rgba(21,33,57,.45);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);cursor:pointer}
+.so-login .login-card{position:relative;animation:bk-fade .3s ease both}
+.so-login .login-form{display:grid;gap:14px;text-align:left}
+.so-login .login-form .btn{cursor:pointer}
+.so-login .login-card label.btn{display:flex;color:#fff;font-size:.85rem}
+.so-login .login-card label.back{display:inline-block;font-weight:400;color:var(--ink-soft);cursor:pointer}
+.so-login .login-card label.back:hover{color:var(--heading)}
+.login-note{background:var(--gold-soft);color:var(--gold-dark)}
+.so-admin{background:var(--page-tint)}
+.so-admin iframe{border:0;width:100%;height:100%;display:block}
+.staff-back{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:2;padding:11px 20px;border-radius:999px;cursor:pointer;
+  font:700 .85rem var(--sans);letter-spacing:.06em;color:#fff;background:rgba(21,33,57,.88);border:1px solid rgba(255,255,255,.25);box-shadow:0 12px 30px -10px rgba(0,0,0,.6)}
+.staff-back:hover{background:#152139}
+label.footer-staff{cursor:pointer}`;
+// Styles go in the website's own <head> (the first one; the admin iframe has its own further down).
+html = html
+  .replace('</head>', () => `<style>\n${staffCss}\n</style>\n</head>`)
+  .replace('</body>', () => `${staffOverlay}\n</body>`);
+if (html.indexOf('.staff-overlay{') > html.indexOf('<body')) throw new Error('Staff overlay styles ended up outside the website head');
+assertOffline('preview.html', html);
+write('preview.html', html);
 
 // ---------- All-in-one preview: tabs for desktop, phone and admin ----------
 const srcdoc = (doc) => doc.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
