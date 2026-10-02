@@ -129,11 +129,14 @@
   }
   markToday();
   if (hoursBody && window.STUDIO_HOURS) showHours(window.STUDIO_HOURS); // offline preview: built-in hours first
-  if (hoursBody && window.fetch && (window.FenixDemo || location.protocol !== 'file:')) {
+  // Re-read the hours saved in the admin (also called when coming back from the admin preview).
+  window.refreshStudioHours = function () {
+    if (!hoursBody || !window.fetch || !(window.FenixDemo || location.protocol !== 'file:')) return;
     fetch('/api/config').then(function (r) { return r.ok ? r.json() : null; })
       .then(function (c) { if (c && c.hours) showHours(c.hours); })
       .catch(function () { /* keep the built-in hours */ });
-  }
+  };
+  window.refreshStudioHours();
 
   // Footer year
   var y = document.querySelector('[data-year]');

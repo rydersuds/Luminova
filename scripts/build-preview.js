@@ -527,11 +527,14 @@ html = html
     (function () {
       var r = document.getElementById('staff-admin'), f = document.querySelector('.so-admin iframe');
       if (r && f) r.addEventListener('change', function () { if (r.checked) f.srcdoc = f.srcdoc; });
+      var none = document.getElementById('staff-none');
+      if (none) none.addEventListener('change', function () { if (none.checked && window.refreshStudioHours) window.refreshStudioHours(); });
       // Admin's View site / Log out buttons ask us to switch back.
       addEventListener('message', function (e) {
         if (!e.data || e.data.fenixDemo !== 'nav') return;
         var target = document.getElementById(e.data.to === 'login' ? 'staff-login' : 'staff-none');
         if (target) target.checked = true;
+        if (e.data.to !== 'login' && window.refreshStudioHours) window.refreshStudioHours();
       });
     })();
   </script>\n</body>`);

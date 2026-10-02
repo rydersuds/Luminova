@@ -327,6 +327,8 @@
       restart();
     }
     if (modal.classList.contains('is-open')) return;
+    // Pick up any change to hours or the booking window made in the admin since the page loaded.
+    if (cfg) api.config().then(function (c) { cfg.hours = c.hours; cfg.maxDaysAhead = c.maxDaysAhead; cfg.today = c.today; }).catch(function () {});
     lastFocus = document.activeElement;
     modal.classList.remove('is-closing');
     modal.classList.add('is-open');
