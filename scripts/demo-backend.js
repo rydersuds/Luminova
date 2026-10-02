@@ -218,6 +218,10 @@
       return new Promise(function (res) { setTimeout(function () { res(new Response(JSON.stringify(r.body), { status: r.status, headers: { 'Content-Type': 'application/json' } })); }, 100); });
     });
   };
-  window.FenixDemo = { reset: function () { return call('POST', '/api/__demo/reset', {}); } };
+  window.FenixDemo = {
+    reset: function () { return call('POST', '/api/__demo/reset', {}); },
+    // true when this page is embedded in another preview page (which can switch views for it)
+    embedded: mode.then(function (m) { return m === 'child'; }),
+  };
   window.STUDIO_HOURS = CONFIG.hours; // refreshed from /api/config once the page loads
 })();

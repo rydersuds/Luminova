@@ -124,6 +124,16 @@
       .day-row .times { grid-column: 1 / -1; }
     }
     @media (max-width: 380px) { .admin-tag { display: none; } }
+    .confirm { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 16px; background: rgba(21, 33, 57, .45); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    .confirm[hidden], .toast[hidden] { display: none; }
+    .confirm-box { width: min(420px, 100%); padding: 24px 24px 20px; border-radius: 22px; background: var(--glass-strong); border: 1px solid var(--glass-edge); box-shadow: var(--glass-rim), var(--glass-drop); }
+    .confirm-box h3 { margin: 0 0 6px; font-size: 1.3rem; }
+    .confirm-box p { margin: 0 0 18px; color: var(--ink-soft); }
+    .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+    .confirm-actions button { font: 700 .95rem var(--sans); padding: 10px 18px; border-radius: 999px; cursor: pointer; border: 1px solid transparent; background: var(--strong); color: var(--on-strong); }
+    .confirm-actions button.ghost { background: var(--glass-lite); color: var(--heading); border-color: var(--outline); }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 410; padding: 11px 18px; border-radius: 999px; font-weight: 700; background: #1f6b45; color: #fff; box-shadow: 0 12px 30px -12px rgba(0,0,0,.5); }
+    .toast.err { background: #a33; }
   </style>
 </head>
 <body>
@@ -189,7 +199,7 @@
           </label>
         </div>
         <div class="actions">
-          <button type="submit">Save hours</button>
+          <button type="button" id="avail-save">Save hours</button>
           <button type="button" class="ghost" id="avail-reset">Reset to defaults</button>
           <p class="msg" id="avail-msg" role="status"></p>
         </div>
@@ -211,12 +221,24 @@
         <label>End<input type="time" name="end" value="13:00" step="900"></label>
         <label class="check"><input type="checkbox" name="allDay"> All day</label>
         <label style="flex:1;min-width:180px">Reason<input name="reason" maxlength="200" placeholder="e.g. Phone booking – J. Smith"></label>
-        <button type="submit">Add block</button>
+        <button type="button" id="block-add">Add block</button>
       </form>
       <p class="msg" id="block-msg"></p>
       <div class="table-wrap"><table id="blocks"></table></div>
     </section>
   </main>
+
+  <div class="confirm" id="confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+    <div class="confirm-box">
+      <h3 id="confirm-title"></h3>
+      <p id="confirm-detail"></p>
+      <div class="confirm-actions">
+        <button type="button" class="ghost" id="confirm-no">Keep it</button>
+        <button type="button" id="confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" hidden></div>
 
   <script>
     const $ = (s) => document.querySelector(s);
@@ -234,6 +256,34 @@
       delete root.dataset.theme;
       box.addEventListener('change', () => { try { localStorage.setItem('theme', box.checked ? 'dark' : 'light'); } catch (e) { /* ignore */ } });
     })();
+
+    // ---------- In-page confirmation and notices (browser popups are blocked in embedded frames) ----------
+    function askConfirm(title, detail, okLabel) {
+      return new Promise((resolve) => {
+        const dlg = $('#confirm');
+        $('#confirm-title').textContent = title;
+        $('#confirm-detail').textContent = detail || '';
+        $('#confirm-ok').textContent = okLabel || 'Confirm';
+        dlg.hidden = false;
+        $('#confirm-ok').focus();
+        const done = (answer) => {
+          dlg.hidden = true;
+          dlg.removeEventListener('click', onClick); document.removeEventListener('keydown', onKey);
+          resolve(answer);
+        };
+        const onClick = (e) => {
+          if (e.target.closest('#confirm-ok')) done(true);
+          else if (e.target.closest('#confirm-no') || e.target === dlg) done(false);
+        };
+        const onKey = (e) => { if (e.key === 'Escape') done(false); };
+        dlg.addEventListener('click', onClick); document.addEventListener('keydown', onKey);
+      });
+    }
+    function toast(text, isError) {
+      const t = $('#toast');
+      t.textContent = text; t.className = 'toast' + (isError ? ' err' : ''); t.hidden = false;
+      clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 3500);
+    }
 
     async function api(url, opts = {}) {
       const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
@@ -283,16 +333,20 @@
 
     document.addEventListener('click', async (e) => {
       const c = e.target.closest('[data-cancel]');
-      if (c && confirm(`Cancel the booking for ${c.dataset.name}? Remember to let them know.`)) {
+      if (c && await askConfirm(`Cancel the booking for ${c.dataset.name}?`, 'Remember to let them know.', 'Cancel booking')) {
         try { await api(`/api/admin/bookings/${c.dataset.cancel}/cancel`, { method: 'POST' }); loadBookings(); }
-        catch (err) { alert(err.message); }
+        catch (err) { toast(err.message, true); }
       }
       const u = e.target.closest('[data-unblock]');
-      if (u) { await api(`/api/admin/blocks/${u.dataset.unblock}`, { method: 'DELETE' }); loadBlocks(); }
+      if (u) {
+        try { await api(`/api/admin/blocks/${u.dataset.unblock}`, { method: 'DELETE' }); loadBlocks(); }
+        catch (err) { toast(err.message, true); }
+      }
     });
 
-    $('#block-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
+    // Buttons use click handlers (not form submits) so they also work inside embedded frames.
+    $('#block-form').addEventListener('submit', (e) => e.preventDefault());
+    $('#block-add').addEventListener('click', async () => {
       const f = $('#block-form'), msg = $('#block-msg');
       try {
         await api('/api/admin/blocks', { method: 'POST', body: JSON.stringify({
@@ -352,15 +406,15 @@
     async function loadAvailability() {
       try { renderAvailability(await api('/api/admin/availability')); } catch (err) { say(err.message); }
     }
-    availForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    availForm.addEventListener('submit', (e) => e.preventDefault());
+    $('#avail-save').addEventListener('click', async () => {
       try {
         renderAvailability(await api('/api/admin/availability', { method: 'PUT', body: JSON.stringify(collectAvailability()) }));
         say('Saved. The booking form now uses these hours.', true);
       } catch (err) { say(err.message); }
     });
     $('#avail-reset').addEventListener('click', async () => {
-      if (!confirm('Reset hours and booking rules to the original defaults?')) return;
+      if (!await askConfirm('Reset hours and booking rules?', 'This goes back to the original weekly hours and rules.', 'Reset')) return;
       try { renderAvailability(await api('/api/admin/availability', { method: 'DELETE' })); say('Reset to defaults.', true); }
       catch (err) { say(err.message); }
     });
@@ -376,7 +430,7 @@
     document.querySelectorAll('[data-day-off]').forEach((b) => b.addEventListener('click', async () => {
       const date = addDays(localToday(), Number(b.dataset.dayOff));
       const label = b.dataset.dayOff === '0' ? 'today' : 'tomorrow';
-      if (!confirm(`Block all of ${label} (${fmtDay(date)})? Existing appointments stay booked.`)) return;
+      if (!await askConfirm(`Take ${label} off?`, `${fmtDay(date)} will be blocked for new bookings. Existing appointments stay booked.`, `Take ${label} off`)) return;
       const msg = $('#quick-msg');
       try {
         await api('/api/admin/blocks', { method: 'POST', body: JSON.stringify({ date, allDay: true, reason: 'Day off' }) });

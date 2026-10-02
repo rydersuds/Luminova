@@ -408,12 +408,11 @@ admin = sitePageKeepScripts(admin)
   .replace(/<form class="logout" method="post" action="\/admin\/logout"><button([^>]*) type="submit">/, '<div class="logout"><button$1 type="button">')
   .replace('Log out</button></form>', 'Log out</button></div>')
   .replace('<main class="wrap admin">', `<main class="wrap admin">
-    <p class="preview-note">Demo admin: bookings made on the preview website appear here, and changes to hours and time off apply to its booking form. Saved in this browser only. <button type="button" class="ghost demo-reset" onclick="FenixDemo.reset().then(function () { location.reload(); })">Reset demo</button></p>`)
+    <p class="preview-note">Demo admin: bookings made on the preview website appear here, and changes to hours and time off apply to its booking form. Saved in this browser only. <button type="button" class="ghost demo-reset" onclick="FenixDemo.reset().then(function () { loadBookings(); loadBlocks(); loadAvailability(); toast('Demo data reset.'); })">Reset demo</button></p>`)
   .replace('<input type="date" id="from">', `<input type="date" id="from" value="${dayStr(0)}">`)
   .replace('<input type="date" id="to">', `<input type="date" id="to" value="${dayStr(30)}">`)
   .replace('<div class="stats" id="stats"></div>', () => `<div class="stats" id="stats"><span class="stat"><strong>${active}</strong>appointments</span><span class="stat"><strong>${hoursBooked}</strong>hours booked</span><span class="stat"><strong>${money2(revenue)}</strong>expected</span></div>`)
   .replace('<div id="list"><p class="empty">Loading…</p></div>', () => `<div id="list">${list}</div>`)
-  .replace('<button type="submit">Add block</button>', '<button type="button" data-demo-submit>Add block</button>')
   .replace('name="date" required>', `name="date" required value="${dayStr(0)}">`)
   .replace('<table id="blocks"></table>', () => `<table id="blocks">${blocksHtml}</table>`)
   .replace('</style>', `  .preview-note { background: var(--gold-soft); color: var(--gold-dark); border-radius: 8px; padding: 10px 14px; margin: 0; font-size: .9rem; }
@@ -442,14 +441,17 @@ const weekRows = [1, 2, 3, 4, 5, 6, 0].map((d) => {
 const selectValue = (html, name, value) => html.replace(new RegExp(`(<select name="${name}">[\\s\\S]*?<option value="${value}")`), '$1 selected');
 admin = admin
   .replace('<div class="week" id="week"></div>', () => `<div class="week" id="week">${weekRows}</div>`)
-  .replace('<button type="submit">Save hours</button>', '<button type="button" data-demo-submit>Save hours</button>')
-  // Buttons are type="button" so nothing submits without JavaScript; with it, they fire the forms' handlers.
-  .replace(/addEventListener\('submit',/g, "addEventListener('demo-submit',")
   .replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n  <script>\n${inline(demoBackend)}\n  </script>\n  <script>
     document.documentElement.classList.add('demo-js');
+    // Preview navigation: View site / the logo go back to the website, Log out goes to the login page.
     document.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-demo-submit]');
-      if (b && b.form) b.form.dispatchEvent(new Event('demo-submit', { cancelable: true }));
+      const to = e.target.closest('.view-site, .admin-header .brand') ? 'site' : e.target.closest('.logout button') ? 'login' : null;
+      if (!to) return;
+      e.preventDefault();
+      FenixDemo.embedded.then((embedded) => {
+        if (embedded) window.parent.postMessage({ fenixDemo: 'nav', to }, '*');
+        else toast(to === 'login' ? 'Signed out (preview).' : 'In the website preview this takes you back to the site.');
+      });
     });
   </script>`)
   .replace('</style>', `  .day-row:has(.open:not(:checked)) .times input, .day-row:has(.open:not(:checked)) .times .to { display: none; }
@@ -464,6 +466,7 @@ write('admin-preview.html', admin);
 
 // ---------- Staff login preview ----------
 const login = sitePage(fs.readFileSync(path.join(__dirname, '..', 'admin', 'login.html'), 'utf8'))
+  .replace(' autofocus>', '>')
   .replace('<!--MESSAGE-->', '')
   .replace('<form method="post" action="/admin/login">', '<div class="login-form" style="display:grid;gap:14px;text-align:left">')
   .replace(/(<button class="btn btn-gold") type="submit">Log in<\/button>\s*<\/form>/, '$1 type="button">Log in</button>\n      </div>');
@@ -476,6 +479,7 @@ const loginFile = fs.readFileSync(path.join(__dirname, '..', 'admin', 'login.htm
 const loginCss = loginFile.match(/<style>([\s\S]*?)<\/style>/)[1];
 const loginCard = loginFile.match(/<div class="login-card">[\s\S]*?<a class="back"[\s\S]*?<\/a>\s*<\/div>/)[0]
   .replace(/<a class="brand" href="\/"([^>]*)>/, '<span class="brand"$1>').replace('</svg>\n        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>\n      </a>', '</svg>\n        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>\n      </span>')
+  .replace(' autofocus>', '>')
   .replace('<!--MESSAGE-->', '<p class="login-msg login-note">Preview: any password works here. On the live site it\'s your staff password.</p>')
   .replace('<form method="post" action="/admin/login">', '<div class="login-form">')
   .replace(/<button class="btn btn-gold" type="submit">Log in<\/button>\s*<\/form>/, '<label class="btn btn-gold" for="staff-admin">Log in</label>\n      </div>')
@@ -523,6 +527,12 @@ html = html
     (function () {
       var r = document.getElementById('staff-admin'), f = document.querySelector('.so-admin iframe');
       if (r && f) r.addEventListener('change', function () { if (r.checked) f.srcdoc = f.srcdoc; });
+      // Admin's View site / Log out buttons ask us to switch back.
+      addEventListener('message', function (e) {
+        if (!e.data || e.data.fenixDemo !== 'nav') return;
+        var target = document.getElementById(e.data.to === 'login' ? 'staff-login' : 'staff-none');
+        if (target) target.checked = true;
+      });
     })();
   </script>\n</body>`);
 if (html.indexOf('.staff-overlay{') > html.indexOf('<body')) throw new Error('Staff overlay styles ended up outside the website head');
@@ -587,11 +597,16 @@ nav label:hover { color: #fff; border-color: rgba(255,255,255,.5); }
 <section class="stage s-admin"><iframe title="Admin dashboard preview" srcdoc="${srcdoc(admin)}"></iframe></section>
 <script>
   // Website, phone and admin share one demo store; reload a tab when you switch to it so it shows the latest.
+  function showTab(id) {
+    var r = document.getElementById(id), f = document.querySelector('.s-' + id.slice(2) + ' iframe');
+    if (r && f) { r.checked = true; f.srcdoc = f.srcdoc; }
+  }
   document.querySelectorAll('.tabs-state').forEach(function (r) {
-    r.addEventListener('change', function () {
-      var f = document.querySelector('.s-' + r.id.slice(2) + ' iframe');
-      if (r.checked && f) f.srcdoc = f.srcdoc;
-    });
+    r.addEventListener('change', function () { if (r.checked) showTab(r.id); });
+  });
+  // The admin tab's View site / Log out buttons switch tabs.
+  addEventListener('message', function (e) {
+    if (e.data && e.data.fenixDemo === 'nav') showTab(e.data.to === 'login' ? 't-login' : 't-desk');
   });
 </script>
 </body>
