@@ -3,17 +3,30 @@
 // rules, and keeps its data in the top window (shared by the website and admin frames) and in
 // localStorage when available. The build script replaces __CONFIG__ and __SAMPLE__.
 (function () {
+  if (window.FenixDemo) return;
   var CONFIG = __CONFIG__;
   var SAMPLE = __SAMPLE__;
   var KEY = 'fenix-demo-v1';
 
-  // ---------- Shared store ----------
-  var host = window;
-  try { if (window.top && window.top.document) host = window.top; } catch (e) { /* cross-origin: keep our own */ }
-  if (host.__fenixDemo && host.__fenixDemo.version === 1) { install(host.__fenixDemo); return; }
-
-  var demo = { version: 1, data: null };
-  host.__fenixDemo = demo;
+  // ---------- Who holds the data ----------
+  // The outermost preview page owns the demo data. Embedded preview frames (the admin inside the
+  // website, the tabs of the all-in-one preview) send their requests to their parent with
+  // postMessage, which works even when the preview is shown inside a locked-down frame. A frame
+  // whose parent doesn't answer within 400 ms becomes the owner itself.
+  var demo = { data: null };
+  var mode = new Promise(function (resolve) {
+    if (window.parent === window) return resolve('owner');
+    var id = 'ping-' + Math.random(), settled = false;
+    function onPong(e) {
+      if (e.source === window.parent && e.data && e.data.fenixDemo === 'pong' && e.data.id === id) {
+        settled = true; removeEventListener('message', onPong); resolve('child');
+      }
+    }
+    addEventListener('message', onPong);
+    try { window.parent.postMessage({ fenixDemo: 'ping', id: id }, '*'); } catch (e) { /* ignore */ }
+    setTimeout(function () { if (!settled) { removeEventListener('message', onPong); resolve('owner'); } }, 400);
+  });
+  mode.then(function (m) { if (m === 'owner') demo.data = load() || seed(), save(); });
 
   function save() { try { localStorage.setItem(KEY, JSON.stringify(demo.data)); } catch (e) { /* storage unavailable */ } }
   function load() {
@@ -38,9 +51,6 @@
     });
     return data;
   }
-  demo.data = load() || seed();
-  demo.reset = function () { demo.data = seed(); save(); };
-  save();
 
   // ---------- Time helpers (studio local time) ----------
   function toMin(hhmm) { return +hhmm.slice(0, 2) * 60 + +hhmm.slice(3); }
@@ -71,7 +81,6 @@
       maxDaysAhead: a.maxDaysAhead || CONFIG.maxDaysAhead,
     };
   }
-  demo.availability = availability;
   function slots(date, duration) {
     if (!validDate(date)) return [];
     var a = availability(), now = nowLocal();
@@ -96,11 +105,10 @@
   }
 
   // ---------- Routes ----------
-  function json(status, body) {
-    return new Response(JSON.stringify(body), { status: status, headers: { 'Content-Type': 'application/json' } });
-  }
+  function json(status, body) { return { status: status, body: body }; }
   function route(method, url, body) {
     var p = url.pathname, q = url.searchParams, m, d = demo.data;
+    if (p === '/api/__demo/reset') { demo.data = seed(); save(); return json(200, { ok: true }); }
     if (p === '/api/config') {
       var a = availability();
       return json(200, { timezone: CONFIG.timezone, hours: a.hours, maxDaysAhead: a.maxDaysAhead, today: nowLocal().date, currency: CONFIG.currency, newClientDiscountPercent: CONFIG.newClientDiscountPercent, services: CONFIG.services });
@@ -175,23 +183,41 @@
     return json(404, { error: 'Not found' });
   }
 
-  demo.handle = function (input, init) {
-    init = init || {};
-    var url = new URL(typeof input === 'string' ? input : input.url, 'http://demo.local');
-    var method = (init.method || 'GET').toUpperCase(), body = {};
-    try { body = init.body ? JSON.parse(init.body) : {}; } catch (e) { body = {}; }
-    return new Promise(function (resolve) { setTimeout(function () { resolve(route(method, url, body)); }, 120); });
-  };
-  install(demo);
-
-  function install(d) {
-    var realFetch = window.fetch ? window.fetch.bind(window) : null;
-    window.fetch = function (input, init) {
-      var u = typeof input === 'string' ? input : (input && input.url) || '';
-      if (/^\/api\//.test(u)) return d.handle(input, init);
-      return realFetch ? realFetch(input, init) : Promise.reject(new Error('offline'));
-    };
-    window.FenixDemo = d;
-    window.STUDIO_HOURS = d.availability().hours;
+  // ---------- Plumbing ----------
+  var pending = {}, seq = 0;
+  function call(method, url, body) {
+    return mode.then(function (m) {
+      if (m === 'owner') return route(method, new URL(url, 'http://demo.local'), body || {});
+      return new Promise(function (resolve) {
+        var id = 'r' + (++seq) + '-' + Math.random();
+        pending[id] = resolve;
+        window.parent.postMessage({ fenixDemo: 'req', id: id, method: method, url: url, body: body || {} }, '*');
+      });
+    });
   }
+  addEventListener('message', function (e) {
+    var msg = e.data;
+    if (!msg || !msg.fenixDemo) return;
+    if (msg.fenixDemo === 'ping' && e.source) e.source.postMessage({ fenixDemo: 'pong', id: msg.id }, '*');
+    else if (msg.fenixDemo === 'req' && e.source) {
+      var src = e.source;
+      call(msg.method, msg.url, msg.body).then(function (r) { src.postMessage({ fenixDemo: 'res', id: msg.id, status: r.status, body: r.body }, '*'); });
+    } else if (msg.fenixDemo === 'res' && pending[msg.id]) {
+      pending[msg.id]({ status: msg.status, body: msg.body }); delete pending[msg.id];
+    }
+  });
+
+  var realFetch = window.fetch ? window.fetch.bind(window) : null;
+  window.fetch = function (input, init) {
+    var u = typeof input === 'string' ? input : (input && input.url) || '';
+    if (!/^\/api\//.test(u)) return realFetch ? realFetch(input, init) : Promise.reject(new Error('offline'));
+    init = init || {};
+    var body = {};
+    try { body = init.body ? JSON.parse(init.body) : {}; } catch (e) { body = {}; }
+    return call((init.method || 'GET').toUpperCase(), u, body).then(function (r) {
+      return new Promise(function (res) { setTimeout(function () { res(new Response(JSON.stringify(r.body), { status: r.status, headers: { 'Content-Type': 'application/json' } })); }, 100); });
+    });
+  };
+  window.FenixDemo = { reset: function () { return call('POST', '/api/__demo/reset', {}); } };
+  window.STUDIO_HOURS = CONFIG.hours; // refreshed from /api/config once the page loads
 })();

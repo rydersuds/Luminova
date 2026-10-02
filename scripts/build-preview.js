@@ -99,7 +99,7 @@ const booker = `<div class="booker booker-demo">
             <div class="bk-summary">${summary}</div>
             <div class="bk-fields">
               <label>Full name<input name="name" autocomplete="name" required maxlength="100"></label>
-              <label>Phone<input name="phone" type="tel" autocomplete="tel" required pattern="[0-9 ()+.\\-]{7,30}"></label>
+              <label>Phone<input name="phone" type="tel" autocomplete="tel" required pattern="[0-9 \\(\\)+.\\-]{7,30}"></label>
               <label class="bk-full">Email<input name="email" type="email" autocomplete="email" required></label>
               <label class="bk-full">Anything we should know? <span class="bk-muted">(optional)</span>
                 <textarea name="notes" rows="3" placeholder="Areas of focus, injuries, pregnancy, pressure preference…"></textarea>
@@ -408,7 +408,7 @@ admin = sitePageKeepScripts(admin)
   .replace(/<form class="logout" method="post" action="\/admin\/logout"><button([^>]*) type="submit">/, '<div class="logout"><button$1 type="button">')
   .replace('Log out</button></form>', 'Log out</button></div>')
   .replace('<main class="wrap admin">', `<main class="wrap admin">
-    <p class="preview-note">Demo admin: bookings made on the preview website appear here, and changes to hours and time off apply to its booking form. Saved in this browser only. <button type="button" class="ghost demo-reset" onclick="FenixDemo.reset(); location.reload()">Reset demo</button></p>`)
+    <p class="preview-note">Demo admin: bookings made on the preview website appear here, and changes to hours and time off apply to its booking form. Saved in this browser only. <button type="button" class="ghost demo-reset" onclick="FenixDemo.reset().then(function () { location.reload(); })">Reset demo</button></p>`)
   .replace('<input type="date" id="from">', `<input type="date" id="from" value="${dayStr(0)}">`)
   .replace('<input type="date" id="to">', `<input type="date" id="to" value="${dayStr(30)}">`)
   .replace('<div class="stats" id="stats"></div>', () => `<div class="stats" id="stats"><span class="stat"><strong>${active}</strong>appointments</span><span class="stat"><strong>${hoursBooked}</strong>hours booked</span><span class="stat"><strong>${money2(revenue)}</strong>expected</span></div>`)
@@ -537,6 +537,9 @@ const hub = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Massage Fenix — Preview</title>
+<script>
+${inline(demoBackend)}
+</script>
 <style>
 ${fontCss}
 :root { --navy: #1b2a45; --navy-deep: #152139; --gold: #c9a55c; --gold-soft: #f5eddc; }

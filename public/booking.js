@@ -209,6 +209,7 @@
 
   function submit(e) {
     e.preventDefault();
+    if ($('[data-submit]').disabled) return; // already sending
     var data = {
       service: state.service, duration: state.duration, date: state.date, time: state.time,
       name: form.elements.name.value, phone: form.elements.phone.value, email: form.elements.email.value,
@@ -302,7 +303,13 @@
     else if (t.matches('[data-ics]')) downloadIcs();
     else if (t.matches('[data-restart]')) restart();
   });
+  // Confirm is a plain button, not a form submit: embedded previews often run in frames that
+  // block form submission, and a click handler works everywhere. Enter in a field confirms too.
+  $('[data-submit]').addEventListener('click', submit);
   form.addEventListener('submit', submit);
+  form.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.matches('input:not([type=checkbox])')) submit(e);
+  });
   form.elements.firstVisit.addEventListener('change', renderSummary);
   form.addEventListener('input', function (e) {
     var err = $('[data-err="' + e.target.name + '"]');
