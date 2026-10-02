@@ -321,7 +321,8 @@ html = html
   .replace(/<a href="#booking" data-book-service="([\w-]+)" data-book-duration="\d+"([^>]*)>([^<]*)<\/a>/g, '<label class="price-link" for="d-svc-$1"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#booking"([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-any"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#" data-close-booking([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-none"$2>$3</label>');
-html = html.replace('<a class="footer-staff" href="/admin/login">Staff login</a>', '<span class="footer-staff" title="Opens the staff login on the live site">Staff login</span>');
+html = html.replace(/<a class="footer-staff" href="\/admin\/login">([\s\S]*?)<\/a>/, '<span class="footer-staff" title="Opens the staff login on the live site">$1</span>');
+if (html.includes('href="/admin/login"')) throw new Error('Staff login link not converted in preview');
 if (/href="#booking"|data-close-booking/.test(html)) throw new Error('Unconverted booking link left in preview');
 assertOffline('preview.html', html);
 write('preview.html', html);

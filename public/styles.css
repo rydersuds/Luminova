@@ -465,8 +465,13 @@ address { font-style: normal; font-size: 1.15rem; margin-bottom: 1em; }
 .footer-brand em { color: var(--gold); }
 .footer-tag { font-size: .75rem; letter-spacing: .24em; text-transform: uppercase; color: var(--gold); margin-bottom: 1.2em; }
 .site-footer .fine { color: #7a869c; margin-top: 12px; }
-.site-footer .footer-staff { color: #9aa6bb; text-decoration: none; }
-.site-footer .footer-staff:hover { color: var(--gold); text-decoration: underline; }
+.site-footer .footer-staff {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; padding: 8px 16px; border-radius: 999px;
+  color: #e3e8f0; font-size: .85rem; font-weight: 700; letter-spacing: .06em; text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .06); transition: border-color .2s, color .2s, background .2s;
+}
+.site-footer .footer-staff svg { width: 15px; height: 15px; }
+.site-footer .footer-staff:hover { color: var(--gold); border-color: var(--gold); background: rgba(201, 165, 92, .1); }
 
 .mobile-book { display: none; }
 
