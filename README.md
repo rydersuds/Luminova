@@ -4,7 +4,7 @@ A redesign of [massagecalgary.ca](https://massagecalgary.ca/) that keeps the ori
 
 ## Run it
 
-Requires **Node 22.5+**. There are no packages to install.
+Requires **Node 22.13+** (for the built-in `node:sqlite`). There are no packages to install.
 
 ```sh
 ADMIN_PASSWORD=choose-a-strong-password npm start

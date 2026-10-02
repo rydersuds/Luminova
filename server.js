@@ -1,6 +1,6 @@
 'use strict';
 // Massage Fenix booking server: serves the site, the booking API and the admin dashboard.
-// No dependencies; needs Node 22.5+ (built-in node:sqlite).
+// No dependencies; needs Node 22.13+ (built-in node:sqlite, no flag).
 
 const http = require('node:http');
 const fs = require('node:fs');

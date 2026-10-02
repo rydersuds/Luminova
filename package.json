@@ -5,7 +5,7 @@
   "description": "Massage Fenix website with built-in online booking",
   "main": "server.js",
   "engines": {
-    "node": ">=22.5"
+    "node": ">=22.13"
   },
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
