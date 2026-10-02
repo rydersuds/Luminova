@@ -110,10 +110,49 @@ test('past dates and closed times offer nothing', async () => {
 
 test('admin endpoints require the password', async () => {
   assert.equal((await get('/api/admin/bookings')).status, 401);
-  assert.equal((await get('/admin')).status, 401);
+  const page = await fetch(base + '/admin', { redirect: 'manual' });
+  assert.equal(page.status, 303, 'signed-out visitors are sent to the login page');
+  assert.equal(page.headers.get('location'), '/admin/login');
   const wrong = { Authorization: 'Basic ' + Buffer.from('admin:nope').toString('base64') };
   assert.equal((await get('/api/admin/bookings', wrong)).status, 401);
   assert.equal((await get('/admin', auth)).status, 200);
+});
+
+test('staff can log in with the form, use the admin, and log out', async () => {
+  const form = (password) => fetch(base + '/admin/login', {
+    method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ password }),
+  });
+  const loginPage = await get('/admin/login');
+  assert.equal(loginPage.status, 200);
+  assert.match(await loginPage.text(), /Staff login/);
+
+  const bad = await form('nope');
+  assert.equal(bad.headers.get('location'), '/admin/login?error=1');
+  assert.equal(bad.headers.get('set-cookie'), null);
+  assert.match(await (await get('/admin/login?error=1')).text(), /didn&rsquo;t match/);
+
+  const ok = await form('secret');
+  assert.equal(ok.status, 303);
+  assert.equal(ok.headers.get('location'), '/admin');
+  const cookie = ok.headers.get('set-cookie');
+  assert.match(cookie, /fenix_admin=[^;]+; Path=\/; HttpOnly; SameSite=Strict/);
+  const session = { Cookie: cookie.split(';')[0] };
+  assert.equal((await get('/admin', session)).status, 200);
+  assert.equal((await get('/api/admin/bookings', session)).status, 200);
+
+  // A tampered session is rejected.
+  const forged = { Cookie: session.Cookie.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')) };
+  assert.equal((await get('/api/admin/bookings', forged)).status, 401);
+
+  // Successful logins never lock anyone out; repeated wrong passwords do.
+  for (let i = 0; i < 12; i++) assert.equal((await form('secret')).headers.get('location'), '/admin');
+  for (let i = 0; i < 10; i++) await form('nope');
+  assert.equal((await form('secret')).headers.get('location'), '/admin/login?locked=1');
+
+  const out = await fetch(base + '/admin/logout', { method: 'POST', redirect: 'manual', headers: session });
+  assert.equal(out.headers.get('location'), '/admin/login?out=1');
+  assert.match(out.headers.get('set-cookie'), /fenix_admin=; .*Max-Age=0/);
 });
 
 test('admin can cancel a booking, freeing the slot', async () => {

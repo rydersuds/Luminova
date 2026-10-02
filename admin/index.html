@@ -4,91 +4,150 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Bookings — Massage Fenix</title>
+  <title>Admin — Massage Fenix</title>
+  <script>
+    try {
+      var t = localStorage.getItem('theme');
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark';
+    } catch (e) { /* storage unavailable */ }
+  </script>
   <link rel="stylesheet" href="/fonts/fonts.css">
+  <link rel="stylesheet" href="/styles.css">
   <style>
-    :root { --navy: #1b2a45; --navy-deep: #152139; --gold: #c9a55c; --gold-dark: #a8853d; --gold-soft: #f5eddc; --cream: #f8f6f1; --line: #e5dfd2; --ink-soft: #56627a; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font: 16px/1.5 "Lato", system-ui, sans-serif; color: var(--navy); background: var(--cream); }
-    header { background: var(--navy-deep); color: #fff; padding: 18px 0; border-bottom: 3px solid var(--gold); }
-    .wrap { width: min(1100px, 100% - 32px); margin-inline: auto; }
-    header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-    h1 { font: 700 1.4rem "Playfair Display", Georgia, serif; margin: 0; }
-    h1 em { color: var(--gold); }
-    header a { color: var(--gold); font-size: .9rem; }
-    h2 { font: 700 1.3rem "Playfair Display", Georgia, serif; margin: 0 0 14px; }
-    main { padding: 28px 0 60px; display: grid; gap: 24px; }
-    .card { background: #fff; border-radius: 10px; padding: 22px; box-shadow: 0 14px 30px -24px rgba(21,33,57,.5); }
+    /* Admin builds on the website's stylesheet (fonts, colours, glass, dark mode). */
+    .admin-tag { margin-right: auto; padding: 4px 12px; border-radius: 999px; font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-dark); background: var(--gold-soft); border: 1px solid rgba(201, 165, 92, .5); }
+    .admin-header .brand { margin-right: 4px; }
+    .admin-header .header-inner { gap: 14px; }
+    .btn-small { padding: .6em 1.2em; font-size: .78rem; }
+    .logout { margin: 0; }
+    main.admin { padding: 26px 0 70px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+    main.admin > * { min-width: 0; }
+    .admin-header .btn { white-space: nowrap; }
+    .card {
+      background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-edge); box-shadow: var(--glass-rim), var(--glass-drop); border-radius: 26px; padding: 26px 28px;
+    }
+    .card h2 { font-size: 1.6rem; margin: 0 0 12px; }
+    main.admin label { display: flex; flex-direction: column; gap: 5px; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+    main.admin input, main.admin select, main.admin button { font: inherit; }
+    main.admin input, main.admin select {
+      padding: 9px 12px; border-radius: 12px; color: var(--ink); text-transform: none; letter-spacing: 0; font-weight: 400;
+      border: 1px solid var(--glass-edge); background: var(--glass-lite); box-shadow: var(--glass-rim);
+    }
+    main.admin input:focus, main.admin select:focus { outline: none; border-color: var(--gold); box-shadow: var(--glass-rim), 0 0 0 4px rgba(201, 165, 92, .22); }
+    main.admin button {
+      padding: 10px 18px; border-radius: 999px; border: 1px solid transparent; font-weight: 700; cursor: pointer;
+      background: var(--strong); color: var(--on-strong); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25);
+    }
+    main.admin button.ghost { background: var(--glass-lite); color: var(--heading); border-color: var(--outline); }
+    main.admin button.danger { background: transparent; color: #c0504d; border-color: rgba(192, 80, 77, .45); padding: 6px 12px; font-size: .85rem; box-shadow: none; }
     .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 16px; }
-    label { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
-    input, button { font: inherit; }
-    input { padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 4px; color: var(--navy); text-transform: none; letter-spacing: 0; font-weight: 400; }
-    button { padding: 9px 16px; border-radius: 4px; border: 1.5px solid var(--navy); background: var(--navy); color: #fff; font-weight: 700; cursor: pointer; }
-    button.ghost { background: #fff; color: var(--navy); }
-    button.danger { background: #fff; color: #a33; border-color: #d9b3b3; padding: 5px 10px; font-size: .85rem; }
     .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-    .stat { background: var(--gold-soft); border-radius: 6px; padding: 8px 14px; font-size: .9rem; }
-    .stat strong { font-size: 1.2rem; margin-right: 4px; }
-    .day { margin-top: 18px; }
-    .day h3 { font-size: .85rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-dark); margin: 0 0 6px; }
+    .stat { background: var(--gold-soft); border: 1px solid rgba(201, 165, 92, .35); border-radius: 14px; padding: 9px 16px; font-size: .9rem; color: var(--ink); }
+    .stat strong { font-family: var(--serif); font-size: 1.25rem; margin-right: 5px; color: var(--heading); }
+    .day { margin-top: 20px; }
+    .day h3 { font-family: var(--sans); font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-dark); margin: 0 0 6px; }
     table { width: 100%; border-collapse: collapse; font-size: .95rem; }
-    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    th { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+    th, td { text-align: left; padding: 11px 8px; border-bottom: 1px solid var(--glass-edge); vertical-align: top; }
+    th { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); }
+    td { color: var(--ink); }
+    td strong { color: var(--heading); }
     td small { color: var(--ink-soft); display: block; }
     td a { color: var(--gold-dark); }
     tr.cancelled td { color: #9aa3b5; text-decoration: line-through; }
     tr.cancelled td:last-child { text-decoration: none; }
-    .badge { background: var(--gold-soft); color: var(--gold-dark); font-size: .75rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+    .badge { background: var(--gold-soft); color: var(--gold-dark); font-size: .75rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
     .ref { font-family: ui-monospace, monospace; font-size: .85rem; }
     .empty { color: var(--ink-soft); padding: 12px 0; }
-    .check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 8px; }
-    .msg { font-size: .9rem; min-height: 1.3em; margin: 8px 0 0; }
-    .msg.err { color: #a33; }
+    main.admin .check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 10px; }
+    .msg { font-size: .92rem; min-height: 1.3em; margin: 8px 0 0; }
+    .msg.err { color: #c0504d; }
+    .msg.ok { color: #3f9a66; }
     .table-wrap { overflow-x: auto; }
-    .sub { margin: -6px 0 16px; color: var(--ink-soft); }
+    .sub { margin: -4px 0 18px; color: var(--ink-soft); }
     /* Tabs (radio buttons, so they also work without JavaScript) */
     .tab-state { position: absolute; opacity: 0; pointer-events: none; }
-    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .tabs label { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px 16px; border-radius: 10px; background: #fff; border: 1.5px solid var(--line);
-      font-size: 1.05rem; font-weight: 700; color: var(--navy); text-transform: none; letter-spacing: 0; cursor: pointer; box-shadow: 0 10px 24px -22px rgba(21,33,57,.5); }
+    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    main.admin .tabs label {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 16px 18px; border-radius: 20px; cursor: pointer;
+      font-size: 1.08rem; font-weight: 700; color: var(--heading); text-transform: none; letter-spacing: 0;
+      background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-edge); box-shadow: var(--glass-rim), var(--glass-drop); transition: border-color .2s, background .2s;
+    }
     .tabs label small { font-weight: 400; font-size: .82rem; color: var(--ink-soft); }
-    .tabs .ico { font-size: 1.3rem; line-height: 1; margin-bottom: 4px; }
-    .tabs label:hover { border-color: var(--gold); }
-    #tab-appts:checked ~ .tabs [for="tab-appts"], #tab-hours:checked ~ .tabs [for="tab-hours"], #tab-off:checked ~ .tabs [for="tab-off"] { border-color: var(--gold); background: var(--gold-soft); }
+    .tabs .ico { font-size: 1.35rem; line-height: 1; margin-bottom: 6px; }
+    main.admin .tabs label:hover { border-color: var(--gold); }
+    #tab-appts:checked ~ .tabs [for="tab-appts"], #tab-hours:checked ~ .tabs [for="tab-hours"], #tab-off:checked ~ .tabs [for="tab-off"] {
+      border-color: rgba(201, 165, 92, .8); background: linear-gradient(160deg, rgba(226, 201, 146, .45), rgba(201, 165, 92, .16));
+    }
     #tab-appts:focus-visible ~ .tabs [for="tab-appts"], #tab-hours:focus-visible ~ .tabs [for="tab-hours"], #tab-off:focus-visible ~ .tabs [for="tab-off"] { outline: 3px solid var(--gold); outline-offset: 2px; }
     .tab-pane { display: none; }
     #tab-appts:checked ~ .p-appts, #tab-hours:checked ~ .p-hours, #tab-off:checked ~ .p-off { display: block; }
     .quick { display: flex; flex-wrap: wrap; gap: 10px; }
-    .quick button { padding: 12px 20px; font-size: 1rem; background: var(--gold); border-color: var(--gold); }
-    h3.minor { font-size: 1rem; margin: 22px 0 10px; }
-    @media (max-width: 560px) { .tabs label { padding: 10px; font-size: .95rem; } .tabs label small { display: none; } }
-    .week { display: grid; gap: 6px; margin-bottom: 18px; }
-    .day-row { display: grid; grid-template-columns: 130px 110px 1fr; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; background: var(--cream); }
-    .day-row strong { font-size: .95rem; }
-    .day-row .times { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .day-row .times input { width: 128px; }
-    .day-row .closed-note { color: var(--ink-soft); font-size: .9rem; display: none; }
+    main.admin .quick button { padding: 13px 22px; font-size: 1rem; background: linear-gradient(180deg, #e0c283 0%, #c9a55c 52%, #b48c45 100%); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 10px 24px -10px rgba(169,133,61,.75); }
+    h3.minor { font-family: var(--sans); font-size: 1rem; margin: 24px 0 10px; }
+    .week { display: grid; gap: 8px; margin-bottom: 20px; }
+    .day-row { display: grid; grid-template-columns: 130px 110px 1fr; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 16px; background: var(--glass-lite); border: 1px solid var(--glass-edge); }
+    .day-row strong { font-size: .98rem; color: var(--heading); }
+    .day-row .times { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--ink-soft); }
+    .day-row .times input { width: 132px; }
+    .day-row .closed-note { color: var(--ink-soft); font-size: .92rem; display: none; }
+    .day-row.is-closed { opacity: .8; }
     .day-row.is-closed .times input, .day-row.is-closed .times .to { display: none; }
     .day-row.is-closed .closed-note { display: inline; }
-    .switch { flex-direction: row; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: .9rem; color: var(--navy); cursor: pointer; }
-    .switch input { width: 18px; height: 18px; accent-color: var(--gold-dark); }
-    .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 16px; margin-bottom: 18px; }
-    select { font: inherit; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 4px; color: var(--navy); background: #fff; text-transform: none; letter-spacing: 0; font-weight: 400; }
+    main.admin .switch { flex-direction: row; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: .92rem; color: var(--heading); cursor: pointer; }
+    main.admin .switch input { width: 19px; height: 19px; padding: 0; accent-color: var(--gold-dark); box-shadow: none; }
+    .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 16px; margin-bottom: 20px; }
     .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .actions .msg { margin: 0; }
-    .msg.ok { color: #2f7a4f; }
-    @media (max-width: 560px) { .day-row { grid-template-columns: 1fr auto; } .day-row .times { grid-column: 1 / -1; } }
+    @media (max-width: 640px) {
+      .admin-header .view-site { display: none; }
+      .admin-header .header-inner { gap: 10px; }
+      .admin-header .brand-mark { width: 28px; height: 34px; }
+      .admin-header .brand-text em { font-size: 1.45rem; }
+      .admin-tag { padding: 3px 9px; font-size: .64rem; }
+      .tabs { gap: 8px; }
+      main.admin .tabs label { align-items: center; text-align: center; padding: 12px 6px; font-size: .88rem; border-radius: 16px; }
+      .toolbar > label { flex: 1 1 140px; }
+      .toolbar > label input { width: 100%; }
+      .toolbar > label.check { flex: 0 0 auto; align-self: center; padding-bottom: 0; }
+      .toolbar > label.check input { width: 20px; height: 20px; padding: 0; }
+      /* Appointments as stacked cards on phones */
+      .day thead { display: none; }
+      .day table, .day tbody { display: block; }
+      .day tr { display: grid; grid-template-columns: 84px 1fr; gap: 6px 12px; padding: 14px 0; border-bottom: 1px solid var(--glass-edge); }
+      .day td { display: block; border: 0; padding: 0; }
+      .day td:nth-child(n+3) { grid-column: 2; }
+      .card { padding: 20px 18px; border-radius: 22px; }
+      .tabs label small { display: none; }
+      .day-row { grid-template-columns: 1fr auto; }
+      .day-row .times { grid-column: 1 / -1; }
+    }
+    @media (max-width: 380px) { .admin-tag { display: none; } }
   </style>
 </head>
 <body>
-  <header>
-    <div class="wrap">
-      <h1>Massage <em>Fenix</em> · Admin</h1>
-      <a href="/">View site</a>
+  <header class="site-header admin-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="/" aria-label="Massage Fenix website">
+        <svg class="brand-mark" viewBox="0 0 40 48" aria-hidden="true">
+          <path class="wing-a" d="M20 2c-6 8-15 12-16 24 5-6 10-8 14-8-3 4-5 9-3 16 2-8 6-12 11-14-5-5-7-11-6-18z"/>
+          <path class="wing-b" d="M22 20c6 1 12 6 12 14 0 6-5 11-11 12 4-3 6-7 5-11-1 4-5 7-9 7 5-4 6-11 3-22z"/>
+        </svg>
+        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>
+      </a>
+      <span class="admin-tag">Admin</span>
+      <input class="theme-state" type="checkbox" id="theme-toggle" role="switch" aria-label="Dark mode">
+      <label class="theme-toggle" for="theme-toggle" title="Switch between light and dark mode">
+        <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></g></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1z" fill="currentColor"/></svg>
+      </label>
+      <a class="btn btn-outline-navy btn-small view-site" href="/">View site</a>
+      <form class="logout" method="post" action="/admin/logout"><button class="btn btn-gold btn-small" type="submit">Log out</button></form>
     </div>
   </header>
 
-  <main class="wrap">
+  <main class="wrap admin">
     <input class="tab-state" type="radio" name="tab" id="tab-appts" checked>
     <input class="tab-state" type="radio" name="tab" id="tab-hours">
     <input class="tab-state" type="radio" name="tab" id="tab-off">
@@ -168,8 +227,17 @@
     const localToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Edmonton' }).format(new Date());
     const addDays = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 
+    // Light/dark switch, shared with the website (same saved preference).
+    (function () {
+      const root = document.documentElement, box = document.getElementById('theme-toggle');
+      box.checked = root.dataset.theme === 'dark';
+      delete root.dataset.theme;
+      box.addEventListener('change', () => { try { localStorage.setItem('theme', box.checked ? 'dark' : 'light'); } catch (e) { /* ignore */ } });
+    })();
+
     async function api(url, opts = {}) {
       const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+      if (res.status === 401) { location.href = '/admin/login'; throw new Error('Please sign in again.'); }
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || 'Request failed');
       return body;

@@ -465,6 +465,8 @@ address { font-style: normal; font-size: 1.15rem; margin-bottom: 1em; }
 .footer-brand em { color: var(--gold); }
 .footer-tag { font-size: .75rem; letter-spacing: .24em; text-transform: uppercase; color: var(--gold); margin-bottom: 1.2em; }
 .site-footer .fine { color: #7a869c; margin-top: 12px; }
+.site-footer .footer-staff { color: #9aa6bb; text-decoration: none; }
+.site-footer .footer-staff:hover { color: var(--gold); text-decoration: underline; }
 
 .mobile-book { display: none; }
 

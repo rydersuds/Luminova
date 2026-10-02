@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Staff login — Massage Fenix</title>
+  <meta name="theme-color" content="#1b2a45">
+  <script>
+    try {
+      var t = localStorage.getItem('theme');
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark';
+    } catch (e) { /* storage unavailable */ }
+  </script>
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+    .login-card {
+      width: min(420px, 100%); padding: 34px 30px 28px; border-radius: 28px; text-align: center;
+      background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-edge); box-shadow: var(--glass-rim), var(--glass-drop);
+    }
+    .login-card .brand { justify-content: center; margin: 0 auto 18px; }
+    .login-card h1 { font-size: 1.7rem; margin-bottom: .2em; }
+    .login-card .lead { color: var(--ink-soft); margin: 0 0 22px; }
+    .login-card form { display: grid; gap: 14px; text-align: left; }
+    .login-card label { display: grid; gap: 6px; font-weight: 700; font-size: .92rem; color: var(--heading); }
+    .login-card input {
+      font: 400 1rem var(--sans); padding: 13px 16px; border-radius: 14px; color: var(--ink);
+      border: 1px solid var(--glass-edge); background: var(--glass-lite); box-shadow: var(--glass-rim);
+    }
+    .login-card input:focus { outline: none; border-color: var(--gold); box-shadow: var(--glass-rim), 0 0 0 4px rgba(201, 165, 92, .22); }
+    .login-card .btn { width: 100%; margin-top: 4px; }
+    .login-msg { margin: 0 0 16px; padding: 10px 14px; border-radius: 12px; background: var(--alert-bg); color: var(--alert-ink); font-size: .92rem; }
+    .back { display: inline-block; margin-top: 18px; font-size: .9rem; color: var(--ink-soft); text-decoration: none; }
+    .back:hover { color: var(--heading); }
+  </style>
+</head>
+<body>
+  <main class="login-wrap">
+    <div class="login-card">
+      <a class="brand" href="/" aria-label="Massage Fenix website">
+        <svg class="brand-mark" viewBox="0 0 40 48" aria-hidden="true">
+          <path class="wing-a" d="M20 2c-6 8-15 12-16 24 5-6 10-8 14-8-3 4-5 9-3 16 2-8 6-12 11-14-5-5-7-11-6-18z"/>
+          <path class="wing-b" d="M22 20c6 1 12 6 12 14 0 6-5 11-11 12 4-3 6-7 5-11-1 4-5 7-9 7 5-4 6-11 3-22z"/>
+        </svg>
+        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>
+      </a>
+      <h1>Staff login</h1>
+      <p class="lead">Manage appointments, hours and time off.</p>
+      <!--MESSAGE-->
+      <form method="post" action="/admin/login">
+        <label>Password
+          <input type="password" name="password" autocomplete="current-password" required autofocus>
+        </label>
+        <button class="btn btn-gold" type="submit">Log in</button>
+      </form>
+      <a class="back" href="/">← Back to the website</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -9,13 +9,14 @@ Requires **Node 22.5+**. There are no packages to install.
 ```sh
 ADMIN_PASSWORD=choose-a-strong-password npm start
 # site:  http://localhost:3000
-# admin: http://localhost:3000/admin   (any username + ADMIN_PASSWORD)
+# admin: http://localhost:3000/admin/login  (or the "Staff login" link in the site footer)
 ```
 
 | Environment variable | Purpose |
 | --- | --- |
 | `PORT` | Port to listen on (default `3000`). |
-| `ADMIN_PASSWORD` | Turns on `/admin`. The admin page is disabled when this is unset. |
+| `ADMIN_PASSWORD` | The staff password. Turns on the admin; it's disabled when this is unset. |
+| `COOKIE_SECURE` | Set to `1` when the site is served over HTTPS (or use `TRUST_PROXY=1` behind an HTTPS proxy) so the login cookie is marked Secure. |
 | `DATA_DIR` | Where the SQLite database is stored (default `./data`). Use a persistent disk in production. |
 | `NOTIFY_WEBHOOK_URL` | Optional. Each new booking is POSTed here as JSON with a `text` summary. This works with Slack, or with Zapier or Make to forward bookings by email or SMS. |
 | `TRUST_PROXY` | Set to `1` behind a reverse proxy so rate limiting uses the real client IP. |
@@ -25,7 +26,8 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 - Every "Book" button opens a booking panel that slides in over the current page, so visitors never lose their place. "Book this" on a service card opens it with that service already selected. The panel closes with ×, Escape or a click outside it.
 - Clients pick a service and session length, then a date and time, then enter their details. They get a confirmation number and an "Add to calendar" file.
 - Available times come from the opening hours in `config.js`, minus existing bookings (with a 15-minute turnover buffer) and any blocked time. Two people can't book the same slot.
-- The admin page (`/admin`) has three tabs:
+- Staff sign in at `/admin/login` (linked as "Staff login" in the site footer) with `ADMIN_PASSWORD`. Sign-in lasts 12 hours, and there's a Log out button. Ten wrong passwords in 15 minutes lock login for that address for 15 minutes. Scripts can also call the admin API with HTTP Basic auth.
+- The admin page (`/admin`) uses the website's look (glass, light/dark switch) and has three tabs:
   - **Appointments:** upcoming bookings with totals; cancel with one click.
   - **Hours:** the weekly schedule (open/closed and times for each day) and booking rules (start-time interval, break between clients, minimum notice, how far ahead). Saving applies immediately to the booking form and the hours shown on the website, with no restart. "Reset to defaults" goes back to `config.js`.
   - **Time off:** one-tap "Take today off" / "Take tomorrow off", or block any date and time range.

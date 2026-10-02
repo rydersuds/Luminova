@@ -224,51 +224,73 @@ function assertOffline(name, content) {
 }
 
 // Stylised map for the preview, in place of the embedded Google map.
-const mapSvg = `<div class="map map-static" role="img" aria-label="Map: Massage Fenix at 70 Elgin Meadows Way SE, McKenzie Towne, south-east Calgary">
-          <svg viewBox="0 0 600 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-            <rect width="600" height="420" fill="#efe9dd"/>
-            <!-- parks and green space -->
-            <g fill="#dfe6d6">
-              <path d="M0 0 H70 C60 90 40 160 0 190Z"/>
-              <ellipse cx="250" cy="120" rx="46" ry="30"/>
-              <ellipse cx="420" cy="300" rx="38" ry="26"/>
-              <path d="M470 0 H600 V110 C560 90 500 70 470 0Z"/>
-              <path d="M0 360 C120 350 220 380 330 420 H0Z"/>
+// Drawn after the Google Maps view of Elgin Meadows Way SE (streets, parks and pin placement),
+// so the offline previews show the real neighbourhood without loading Google.
+const road = (d, w = 9) => `<path d="${d}" stroke="#d3dae5" stroke-width="${w + 3}"/><path d="${d}" stroke="#fff" stroke-width="${w}"/>`;
+const label = (text, x, y, rot = 0, size = 12) => `<text x="${x}" y="${y}" font-size="${size}" transform="rotate(${rot} ${x} ${y})" text-anchor="middle">${text}</text>`;
+const mapSvg = `<div class="map map-static" role="img" aria-label="Map: Massage Fenix at 70 Elgin Meadows Way SE, McKenzie Towne, Calgary, near McKenzie Towne Drive SE and Elgin Avenue">
+          <svg viewBox="0 0 945 723" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <pattern id="houses" width="24" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(-24)">
+                <rect x="3" y="3" width="15" height="13" rx="2" fill="#e6e8ec"/>
+              </pattern>
+            </defs>
+            <rect width="945" height="723" fill="#f4f5f7"/>
+            <rect width="945" height="723" fill="url(#houses)" opacity=".6"/>
+            <!-- open space, parks and the pond -->
+            <path d="M322 132 L398 0 H700 L640 50 L566 104 L523 208 L470 214 L385 176 Z" fill="#c8ecd8"/>
+            <path d="M150 600 C190 585 230 590 250 640 L262 723 H140 Z" fill="#c8ecd8"/>
+            <path d="M592 723 L700 548 C780 530 860 515 945 498 V723 Z" fill="#f2ede0"/>
+            <path d="M722 600 C735 575 770 572 790 590 C815 600 830 625 818 640 C800 652 770 640 752 642 C730 640 715 620 722 600 Z" fill="#8fd2ea"/>
+            <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <!-- local streets -->
+              ${road('M0 192 C60 205 110 222 160 248 L210 268')}
+              ${road('M80 40 C130 70 180 105 232 138')}
+              ${road('M30 0 C45 40 60 80 70 120')}
+              ${road('M268 182 C360 222 450 255 545 282')}
+              ${road('M545 282 C600 300 640 330 660 372')}
+              ${road('M240 290 C320 330 400 352 460 360 C560 375 640 410 700 448 C760 475 840 478 900 470 C930 455 935 430 920 390 L905 270 C880 180 820 90 770 0', 10)}
+              ${road('M150 723 C260 690 380 650 430 600 C490 540 520 450 535 360 C548 270 570 190 610 140 C660 80 720 40 780 0', 10)}
+              ${road('M500 140 C560 90 650 50 760 15')}
+              ${road('M720 180 C690 230 660 300 650 360 C645 400 640 430 640 460')}
+              ${road('M760 240 C770 300 772 360 770 420')}
+              ${road('M840 140 C860 200 870 260 872 330')}
+              ${road('M160 450 C220 420 300 400 360 395 C400 392 430 400 450 410')}
+              ${road('M160 450 C180 520 190 560 205 590')}
+              ${road('M300 350 C280 400 260 450 245 520')}
+              ${road('M390 380 C370 430 350 470 330 520')}
+              ${road('M470 723 C500 650 530 600 560 560')}
+              ${road('M560 560 C620 540 680 545 700 548')}
+              ${road('M0 620 C60 600 110 590 150 600')}
+              ${road('M40 420 C40 500 45 560 40 640')}
+              <!-- McKenzie Towne Dr SE (main road) -->
+              <path d="M405 -10 C360 70 300 160 240 240 C200 290 160 330 110 360 C70 380 30 390 -10 395" stroke="#b9c3d2" stroke-width="22"/>
+              <path d="M405 -10 C360 70 300 160 240 240 C200 290 160 330 110 360 C70 380 30 390 -10 395" stroke="#cdd5e1" stroke-width="16"/>
             </g>
-            <!-- neighbourhood streets -->
-            <g fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".9">
-              ${Array.from({ length: 9 }, (_, i) => `<path d="M${130 + i * 30} 40 C${138 + i * 30} 150 ${126 + i * 30} 250 ${134 + i * 30} 340"/>`).join('')}
-              ${Array.from({ length: 8 }, (_, i) => `<path d="M110 ${60 + i * 36} C220 ${54 + i * 36} 330 ${68 + i * 36} 420 ${60 + i * 36}"/>`).join('')}
-              ${Array.from({ length: 5 }, (_, i) => `<path d="M455 ${150 + i * 34} H590"/>`).join('')}
-              ${Array.from({ length: 4 }, (_, i) => `<path d="M${470 + i * 34} 130 V330"/>`).join('')}
+            <g font-family="Lato, Arial, sans-serif" fill="#5f6b7c" font-weight="700" stroke="#f4f5f7" stroke-width="3" paint-order="stroke">
+              ${label('McKenzie Towne Dr SE', 305, 150, -58, 13)}
+              ${label('Elgin Meadows Way SE', 300, 318, 26)}
+              ${label('Elgin Meadows Link SE', 365, 215, 24)}
+              ${label('Elgin Ave', 590, 175, -52)}
+              ${label('Elgin Ave', 445, 560, -50)}
+              ${label('Elgin Meadows Manor SE', 690, 260, -70, 11)}
+              ${label('Elgin Meadows Rd SE', 772, 330, 84, 11)}
+              ${label('Elgin Meadows Way SE', 878, 200, 68, 11)}
+              ${label('Elgin Ter SE', 220, 440, -50, 11)}
+              ${label('Elgin Meadows View SE', 515, 660, -58, 11)}
+              ${label('Elgin Estates Park SE', 100, 212, 28, 11)}
             </g>
-            <!-- main roads -->
-            <g fill="none" stroke-linecap="round">
-              <path d="M112 -10 C96 120 120 260 104 430" stroke="#f3d9a0" stroke-width="16"/>
-              <path d="M112 -10 C96 120 120 260 104 430" stroke="#fff" stroke-width="3" stroke-dasharray="10 12" opacity=".8"/>
-              <path d="M-10 385 C160 370 380 400 610 378" stroke="#f3d9a0" stroke-width="16"/>
-              <path d="M440 -10 C448 140 432 280 444 430" stroke="#fff" stroke-width="11"/>
-              <path d="M-10 350 C180 344 360 356 610 346" stroke="#fff" stroke-width="10"/>
-              <path d="M-10 26 C200 20 400 32 610 22" stroke="#fff" stroke-width="10"/>
+            <g font-family="Lato, Arial, sans-serif" font-weight="700" font-size="13" fill="#3e8a5c" stroke="#c8ecd8" stroke-width="3" paint-order="stroke" text-anchor="middle">
+              <text x="200" y="650">Dragon Park</text>
             </g>
-            <g font-family="Lato, sans-serif" font-size="11" fill="#8a8f99" letter-spacing="1.2" font-weight="700">
-              <text x="126" y="300" transform="rotate(-86 126 300)">DEERFOOT TR</text>
-              <text x="428" y="120" transform="rotate(-88 428 120)" text-anchor="end">52 ST SE</text>
-              <text x="150" y="340">130 AVE SE</text>
-              <text x="405" y="372">STONEY TR</text>
-            </g>
-            <g font-family="Lato, sans-serif" fill="#6d7a90" letter-spacing="2.5" font-weight="700" text-anchor="middle">
-              <text x="275" y="205" font-size="15">MCKENZIE TOWNE</text>
-            </g>
-            <g transform="translate(312 250)">
-              <circle r="30" fill="rgba(201,165,92,.18)"/>
-              <circle r="15" fill="rgba(201,165,92,.28)"/>
-              <ellipse cx="0" cy="26" rx="10" ry="3.5" fill="rgba(0,0,0,.2)"/>
-              <path d="M0 26 C-10 12 -16 4 -16 -4 A16 16 0 0 1 16 -4 C16 4 10 12 0 26Z" fill="#1b2a45"/>
-              <circle cx="0" cy="-4" r="6" fill="#c9a55c"/>
+            <!-- Massage Fenix pin -->
+            <g transform="translate(458 348)">
+              <ellipse cx="0" cy="2" rx="9" ry="3.5" fill="rgba(0,0,0,.22)"/>
+              <path d="M0 2 C-9 -12 -16 -20 -16 -30 A16 16 0 0 1 16 -30 C16 -20 9 -12 0 2Z" fill="#ea4335" stroke="#b3261e" stroke-width="1.5"/>
+              <circle cx="0" cy="-30" r="5.5" fill="#8c1d18"/>
             </g>
           </svg>
-          <div class="map-label"><strong>Massage Fenix</strong><span>70 Elgin Meadows Way SE · McKenzie Towne, Calgary SE</span></div>
+          <div class="map-label"><strong>Massage Fenix</strong><span>70 Elgin Meadows Way SE · McKenzie Towne, Calgary</span></div>
         </div>`;
 const mapCss = `.map-static{position:relative;min-height:380px}
 .map-static svg{position:absolute;inset:0;width:100%;height:100%}
@@ -299,6 +321,7 @@ html = html
   .replace(/<a href="#booking" data-book-service="([\w-]+)" data-book-duration="\d+"([^>]*)>([^<]*)<\/a>/g, '<label class="price-link" for="d-svc-$1"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#booking"([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-any"$2>$3</label>')
   .replace(/<a ([^>]*?)href="#" data-close-booking([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-none"$2>$3</label>');
+html = html.replace('<a class="footer-staff" href="/admin/login">Staff login</a>', '<span class="footer-staff" title="Opens the staff login on the live site">Staff login</span>');
 if (/href="#booking"|data-close-booking/.test(html)) throw new Error('Unconverted booking link left in preview');
 assertOffline('preview.html', html);
 write('preview.html', html);
@@ -348,11 +371,16 @@ const blocksHtml = `<thead><tr><th>Date</th><th>Time</th><th>Reason</th><th></th
   <tr><td>${fmtDay(6)}</td><td>All day</td><td>Closed for training</td><td><button class="danger" type="button">Remove</button></td></tr></tbody>`;
 
 let admin = fs.readFileSync(path.join(__dirname, '..', 'admin', 'index.html'), 'utf8');
-admin = admin
+// Admin pages share the website's stylesheet; inline it (plus fonts) and drop scripts.
+const sitePage = (html) => html
   .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
-  .replace(/<script>[\s\S]*<\/script>/, '')
-  .replace(/\s*<a href="\/">View site<\/a>/, '')
-  .replace('<main class="wrap">', `<main class="wrap">
+  .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
+  .replace(/<script>[\s\S]*?<\/script>/g, '')
+  .replace(/href="\/"/g, 'href="#"');
+admin = sitePage(admin)
+  .replace(/<form class="logout" method="post" action="\/admin\/logout"><button([^>]*) type="submit">/, '<div class="logout"><button$1 type="button">')
+  .replace('Log out</button></form>', 'Log out</button></div>')
+  .replace('<main class="wrap admin">', `<main class="wrap admin">
     <p class="preview-note">Preview with sample bookings. On the live site this page is password-protected and shows real bookings as they come in.</p>`)
   .replace('<input type="date" id="from">', `<input type="date" id="from" value="${dayStr(0)}">`)
   .replace('<input type="date" id="to">', `<input type="date" id="to" value="${dayStr(30)}">`)
@@ -399,6 +427,15 @@ if (/<script|id="list"><p class="empty">|<form/.test(admin)) throw new Error('Ad
 assertOffline('admin-preview.html', admin);
 write('admin-preview.html', admin);
 
+// ---------- Staff login preview ----------
+const login = sitePage(fs.readFileSync(path.join(__dirname, '..', 'admin', 'login.html'), 'utf8'))
+  .replace('<!--MESSAGE-->', '')
+  .replace('<form method="post" action="/admin/login">', '<div class="login-form" style="display:grid;gap:14px;text-align:left">')
+  .replace(/(<button class="btn btn-gold") type="submit">Log in<\/button>\s*<\/form>/, '$1 type="button">Log in</button>\n      </div>');
+if (/<form|<script/.test(login)) throw new Error('Login preview still needs the server');
+assertOffline('login-preview.html', login);
+write('login-preview.html', login);
+
 // ---------- All-in-one preview: tabs for desktop, phone and admin ----------
 const srcdoc = (doc) => doc.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 const hub = `<!doctype html>
@@ -420,10 +457,10 @@ h1 em { color: var(--gold); }
 nav { display: flex; gap: 6px; flex-wrap: wrap; }
 nav label { padding: 7px 14px; border-radius: 999px; color: #cdd5e2; font-weight: 700; font-size: .85rem; cursor: pointer; border: 1.5px solid rgba(255,255,255,.2); }
 nav label:hover { color: #fff; border-color: rgba(255,255,255,.5); }
-#t-desk:checked ~ header [for="t-desk"], #t-phone:checked ~ header [for="t-phone"], #t-admin:checked ~ header [for="t-admin"] { background: var(--gold); border-color: var(--gold); color: #fff; }
+#t-desk:checked ~ header [for="t-desk"], #t-phone:checked ~ header [for="t-phone"], #t-login:checked ~ header [for="t-login"], #t-admin:checked ~ header [for="t-admin"] { background: var(--gold); border-color: var(--gold); color: #fff; }
 #t-desk:focus-visible ~ header [for="t-desk"], #t-phone:focus-visible ~ header [for="t-phone"], #t-admin:focus-visible ~ header [for="t-admin"] { outline: 2px solid #fff; outline-offset: 2px; }
 .stage { flex: 1; min-height: 0; display: none; }
-#t-desk:checked ~ .s-desk, #t-admin:checked ~ .s-admin { display: block; }
+#t-desk:checked ~ .s-desk, #t-login:checked ~ .s-login, #t-admin:checked ~ .s-admin { display: block; }
 #t-phone:checked ~ .s-phone { display: flex; }
 .stage iframe { border: 0; width: 100%; height: 100%; display: block; background: #fff; }
 .s-phone { justify-content: center; align-items: flex-start; overflow: auto; padding: 20px 12px; }
@@ -436,18 +473,21 @@ nav label:hover { color: #fff; border-color: rgba(255,255,255,.5); }
 <body>
 <input class="tabs-state" type="radio" name="tab" id="t-desk" checked>
 <input class="tabs-state" type="radio" name="tab" id="t-phone">
+<input class="tabs-state" type="radio" name="tab" id="t-login">
 <input class="tabs-state" type="radio" name="tab" id="t-admin">
 <header>
   <h1>Massage <em>Fenix</em> · Preview</h1>
   <nav aria-label="Preview">
     <label for="t-desk">Website</label>
     <label for="t-phone">Phone</label>
+    <label for="t-login">Staff login</label>
     <label for="t-admin">Admin dashboard</label>
   </nav>
   <p class="hint">Everything runs inside this page. Bookings here are a demo and aren't saved.</p>
 </header>
 <section class="stage s-desk"><iframe title="Website preview" srcdoc="${srcdoc(html)}"></iframe></section>
 <section class="stage s-phone"><div class="phone"><iframe title="Website on a phone" srcdoc="${srcdoc(html)}"></iframe></div></section>
+<section class="stage s-login"><iframe title="Staff login preview" srcdoc="${srcdoc(login)}"></iframe></section>
 <section class="stage s-admin"><iframe title="Admin dashboard preview" srcdoc="${srcdoc(admin)}"></iframe></section>
 </body>
 </html>

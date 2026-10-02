@@ -218,20 +218,72 @@ setInterval(() => {
   for (const [ip, list] of hits) if (list.every((t) => now - t > 60 * 60 * 1000)) hits.delete(ip);
 }, 10 * 60 * 1000).unref();
 
-function isAdmin(req) {
-  if (!ADMIN_PASSWORD) return false;
-  const header = req.headers.authorization || '';
-  if (!header.startsWith('Basic ')) return false;
-  const [, pass = ''] = Buffer.from(header.slice(6), 'base64').toString('utf8').split(/:(.*)/s);
-  const a = crypto.createHash('sha256').update(pass).digest();
+// ---------- Admin sign-in ----------
+// Staff sign in on /admin/login and get a signed session cookie. Scripts can still send the
+// password with HTTP Basic auth. Sessions are signed with a key derived from ADMIN_PASSWORD,
+// so changing the password signs everyone out.
+const SESSION_COOKIE = 'fenix_admin';
+const SESSION_HOURS = 12;
+const sessionKey = () => crypto.createHash('sha256').update('fenix-session:' + ADMIN_PASSWORD).digest();
+const sign = (data) => crypto.createHmac('sha256', sessionKey()).update(data).digest('base64url');
+function passwordMatches(pass) {
+  const a = crypto.createHash('sha256').update(String(pass)).digest();
   const b = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest();
   return crypto.timingSafeEqual(a, b);
 }
-function requireAdmin(req, res) {
+function newSession() {
+  const exp = String(Date.now() + SESSION_HOURS * 3600 * 1000);
+  return `${exp}.${sign(exp)}`;
+}
+function validSession(token) {
+  const [exp, sig] = String(token || '').split('.');
+  if (!exp || !sig || Number(exp) < Date.now()) return false;
+  const want = Buffer.from(sign(exp));
+  const got = Buffer.from(sig);
+  return want.length === got.length && crypto.timingSafeEqual(want, got);
+}
+function cookies(req) {
+  return Object.fromEntries((req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).filter((kv) => kv[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
+}
+function isHttps(req) {
+  return process.env.COOKIE_SECURE === '1' || (TRUST_PROXY && req.headers['x-forwarded-proto'] === 'https');
+}
+function sessionCookie(req, value, maxAge) {
+  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${isHttps(req) ? '; Secure' : ''}`;
+}
+function isAdmin(req) {
+  if (!ADMIN_PASSWORD) return false;
+  if (validSession(cookies(req)[SESSION_COOKIE])) return true;
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Basic ')) return false;
+  const [, pass = ''] = Buffer.from(header.slice(6), 'base64').toString('utf8').split(/:(.*)/s);
+  return passwordMatches(pass);
+}
+function requireAdmin(req, res, { page = false } = {}) {
   if (!ADMIN_PASSWORD) { send(res, 503, 'Admin is disabled. Set the ADMIN_PASSWORD environment variable.'); return false; }
   if (isAdmin(req)) return true;
-  send(res, 401, 'Authentication required', { 'WWW-Authenticate': 'Basic realm="Massage Fenix admin", charset="UTF-8"' });
+  if (page) send(res, 303, '', { Location: '/admin/login' });
+  else send(res, 401, { error: 'Please sign in again.' });
   return false;
+}
+const loginFailures = new Map();
+function redirect(res, location, headers = {}) { send(res, 303, '', { Location: location, ...headers }); }
+
+function readForm(req, limit = 4 * 1024) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > limit) { reject(Object.assign(new Error('Request too large'), { status: 413 })); req.destroy(); } });
+    req.on('end', () => resolve(Object.fromEntries(new URLSearchParams(body))));
+    req.on('error', reject);
+  });
+}
+
+function serveLogin(res, message) {
+  fs.readFile(path.join(__dirname, 'admin', 'login.html'), 'utf8', (err, html) => {
+    if (err) return send(res, 500, 'Login page missing');
+    const note = message ? `<p class="login-msg" role="alert">${message}</p>` : '';
+    send(res, 200, html.replace('<!--MESSAGE-->', note), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  });
 }
 
 const MIME = {
@@ -365,8 +417,36 @@ async function handle(req, res) {
   }
 
   // Admin
+  if (p === '/admin/login' && req.method === 'GET') {
+    if (!ADMIN_PASSWORD) return send(res, 503, 'Admin is disabled. Set the ADMIN_PASSWORD environment variable.');
+    if (isAdmin(req)) return redirect(res, '/admin');
+    const m = url.searchParams;
+    return serveLogin(res, m.has('error') ? 'That password didn&rsquo;t match. Please try again.'
+      : m.has('locked') ? 'Too many attempts. Please wait 15 minutes and try again.'
+      : m.has('out') ? 'You&rsquo;re signed out.' : '');
+  }
+
+  if (p === '/admin/login' && req.method === 'POST') {
+    if (!ADMIN_PASSWORD) return send(res, 503, 'Admin is disabled.');
+    // Only wrong passwords count towards the lockout: 10 failures in 15 minutes.
+    const ip = clientIp(req);
+    const recent = (loginFailures.get(ip) || []).filter((t) => Date.now() - t < 15 * 60 * 1000);
+    if (recent.length >= 10) return redirect(res, '/admin/login?locked=1');
+    const form = await readForm(req);
+    if (!passwordMatches(form.password || '')) {
+      loginFailures.set(ip, [...recent, Date.now()]);
+      return redirect(res, '/admin/login?error=1');
+    }
+    loginFailures.delete(ip);
+    return redirect(res, '/admin', { 'Set-Cookie': sessionCookie(req, newSession(), SESSION_HOURS * 3600) });
+  }
+
+  if (p === '/admin/logout' && req.method === 'POST') {
+    return redirect(res, '/admin/login?out=1', { 'Set-Cookie': sessionCookie(req, '', 0) });
+  }
+
   if (p === '/admin' || p === '/admin/') {
-    if (!requireAdmin(req, res)) return;
+    if (!requireAdmin(req, res, { page: true })) return;
     return serveFile(res, path.join(__dirname, 'admin', 'index.html'));
   }
 
