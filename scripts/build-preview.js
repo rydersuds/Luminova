@@ -56,6 +56,9 @@ const summary = `
     ${pairs.map((x) => `<span class="d-sum-disc d-sum-disc-${x.s.id}-${x.d}"><s>${money(x.price)}</s> <strong>${money(x.disc)}</strong><small>${pct}% new-client discount</small></span>`).join('')}
   </span>`;
 
+// "Please call" notice for the 5-massage package, copied from the real booking panel.
+const packageNotice = (read('index.html').match(/<aside class="bk-package"[\s\S]*?<\/aside>/) || [''])[0];
+if (!packageNotice) throw new Error('Package notice not found in index.html');
 const booker = `<div class="booker booker-demo">
           ${[1, 2, 3, 4].map((n) => radio('d-step', `d-step${n}`, n === 1)).join('')}
           ${radio('d-svc', 'd-svc-none', true)}${radio('d-svc', 'd-svc-any', false, 'd-open')}
@@ -77,6 +80,7 @@ const booker = `<div class="booker booker-demo">
                 ${allDurations.map((d) => `<span class="bk-option d-dur d-dur-${d}">${radio('d-dur', `d-dur-${d}`)}<label for="d-dur-${d}">${d} min${config.services.filter((s) => s.prices[d]).map((s) => `<small class="d-pp d-pp-${s.id}">${money(s.prices[d])}</small>`).join('')}</label></span>`).join('')}
               </div>
             </div>
+            ${packageNotice}
             <div class="bk-nav"><span></span>${btn('d-step2', 'btn-gold d-next d-next1', 'Continue')}</div>
           </div>
 
