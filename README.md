@@ -45,8 +45,8 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 - `public/fonts/`: Lato and Playfair Display served locally (no Google Fonts requests)
 - `scripts/build-preview.js`: `npm run preview` writes self-contained previews to `dist/`. They load nothing from the internet and work without JavaScript:
   - `preview-all.html`: one page with tabs for the website, the website in a phone frame, and the admin dashboard
-  - `preview.html`: the website, with booking in demo mode and a drawn map instead of Google Maps
-  - `admin-preview.html`: the admin dashboard filled with sample bookings
+  - `preview.html`: the website with a drawn map instead of Google Maps. With JavaScript, a small in-browser demo server (`scripts/demo-backend.js`) stands in for `server.js`, so demo bookings show up in the admin (Staff login in the footer), and hours and time off changed there apply to the booking form. Demo data is kept in the browser; the admin's Reset demo button clears it. Without JavaScript, a CSS-only version of booking and login still works.
+  - `admin-preview.html`: the admin dashboard, sharing the same demo data
 
 ## Deploying
 

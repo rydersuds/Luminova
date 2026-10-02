@@ -293,7 +293,7 @@
 
     $('#block-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const f = e.target, msg = $('#block-msg');
+      const f = $('#block-form'), msg = $('#block-msg');
       try {
         await api('/api/admin/blocks', { method: 'POST', body: JSON.stringify({
           date: f.date.value, start: f.start.value, end: f.end.value, allDay: f.allDay.checked, reason: f.reason.value,
@@ -371,7 +371,7 @@
     if (tabFromHash) document.getElementById(tabFromHash).checked = true;
     document.querySelectorAll('.tab-state').forEach((r) => r.addEventListener('change', () => {
       const hash = { 'tab-hours': '#hours', 'tab-off': '#time-off', 'tab-appts': '#appointments' }[r.id];
-      history.replaceState(null, '', hash);
+      try { history.replaceState(null, '', hash); } catch (err) { /* embedded preview */ }
     }));
     document.querySelectorAll('[data-day-off]').forEach((b) => b.addEventListener('click', async () => {
       const date = addDays(localToday(), Number(b.dataset.dayOff));

@@ -163,6 +163,9 @@ days.forEach((d) => {
 });
 
 const css = `
+html.js .booker-demo{display:none!important}
+html:not(.js) .bk-panel [data-booker]{display:none}
+.demo-note{font-size:.85rem;color:var(--gold-dark);background:var(--gold-soft);padding:8px 14px;border-radius:var(--radius);margin:0 0 20px}
 ${B},${B} .bk-option,${B} .bk-days,${B} .d-slots{position:relative}
 label.service-book{cursor:pointer}
 ${B} .d-slots-label{margin-top:22px}
@@ -308,27 +311,31 @@ const start = html.indexOf('<div class="booker" data-booker>');
 const endMarker = '</noscript>';
 const end = html.indexOf('</div>', html.indexOf(endMarker)) + '</div>'.length;
 if (start < 0 || end < start) throw new Error('Booking widget markup not found in index.html');
-html = html.slice(0, start) + booker + html.slice(end);
+// With JavaScript the real booking widget runs against the in-browser demo server; without it,
+// the CSS-only demo below takes over.
+const realBooker = html.slice(start, end).replace('<div class="booker" data-booker>', `<div class="booker" data-booker>
+          <p class="d-note demo-note">Preview: bookings you make here are saved in this browser and show up in the admin (Staff login, bottom of the page).</p>`);
+html = html.slice(0, start) + realBooker + booker + html.slice(end);
 
 html = html
   .replace('<link rel="stylesheet" href="fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
   .replace('<link rel="stylesheet" href="styles.css">', () => `<style>\n${read('styles.css')}\n${css}\n${mapCss}</style>`)
-  .replace('<script src="script.js"></script>', () => `<script>window.STUDIO_HOURS = ${JSON.stringify(config.hours)};</script>\n<script>\n${inline(read('script.js'))}\n</script>`)
-  .replace('<script src="booking.js"></script>', '')
+  .replace('<script src="script.js"></script>', () => `<script>window.STUDIO_HOURS = ${JSON.stringify(config.hours)};</script>\n<!--DEMO-BACKEND-->\n<script>\n${inline(read('script.js'))}\n</script>`)
+  .replace('<script src="booking.js"></script>', () => `<script>\n${inline(read('booking.js'))}\n</script>`)
   // Map and directions point at Google; the preview shows a drawn map instead.
   .replace(/<div class="map">[\s\S]*?<\/div>/, () => mapSvg)
   .replace(/\s*<a class="btn btn-outline-navy" href="https:\/\/www\.google\.com\/maps\/dir\/[^"]*">Get directions<\/a>/, '')
   // Links become labels for the demo's radio buttons, so the panel opens and closes without JavaScript.
   // "Book this" opens the panel with that service selected.
-  .replace(/<a class="service-book" href="#booking" data-book-service="([\w-]+)">Book this<\/a>/g, '<label class="service-book" for="d-svc-$1">Book this</label>')
+  .replace(/<a class="service-book" href="#booking" data-book-service="([\w-]+)">Book this<\/a>/g, '<label class="service-book" for="d-svc-$1" data-book-service="$1">Book this</label>')
   // Prices in the table open the panel with that service selected.
-  .replace(/<a href="#booking" data-book-service="([\w-]+)" data-book-duration="\d+"([^>]*)>([^<]*)<\/a>/g, '<label class="price-link" for="d-svc-$1"$2>$3</label>')
-  .replace(/<a ([^>]*?)href="#booking"([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-any"$2>$3</label>')
-  .replace(/<a ([^>]*?)href="#" data-close-booking([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-none"$2>$3</label>');
+  .replace(/<a href="#booking" data-book-service="([\w-]+)" data-book-duration="(\d+)"([^>]*)>([^<]*)<\/a>/g, '<label class="price-link" for="d-svc-$1" data-book-service="$1" data-book-duration="$2"$3>$4</label>')
+  .replace(/<a ([^>]*?)href="#booking"([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-any" data-open-booking$2>$3</label>')
+  .replace(/<a ([^>]*?)href="#" data-close-booking([^>]*)>([\s\S]*?)<\/a>/g, '<label $1for="d-svc-none" data-close-booking$2>$3</label>');
 // Staff login opens a preview of the login page, then the admin, over the website.
 html = html.replace(/<a class="footer-staff" href="\/admin\/login">([\s\S]*?)<\/a>/, '<label class="footer-staff" for="staff-login">$1</label>');
 if (html.includes('href="/admin/login"')) throw new Error('Staff login link not converted in preview');
-if (/href="#booking"|data-close-booking/.test(html)) throw new Error('Unconverted booking link left in preview');
+if (/href="#booking"|href="#" data-close-booking/.test(html.replace(/<script>[\s\S]*?<\/script>/g, ''))) throw new Error('Unconverted booking link left in preview');
 // (written further down, once the admin and login previews exist)
 
 // ---------- Admin dashboard preview (sample bookings, no server) ----------
@@ -343,6 +350,17 @@ const sample = [
   [3, '09:30', 'bamboo', 60, 'Casey Brooks', false, ''],
   [3, '12:00', 'aromatherapy', 90, 'Taylor Singh', true, 'Lavender please'],
 ];
+const SAMPLE = {
+  bookings: sample.map(([day, time, service, duration, name, firstVisit, notes, status], i) => ({
+    day, time, service, duration, name, firstVisit, notes, status,
+    ref: 'S' + String(4729 + i * 37).slice(-4) + 'K', phone: `403-555-0${100 + i}`, email: name.toLowerCase().replace(/[^a-z]+/g, '.') + '@example.com',
+  })),
+  blocks: [{ day: 2, start: '12:00', end: '13:00', reason: 'Lunch' }, { day: 6, allDay: true, reason: 'Closed for training' }],
+};
+const demoBackend = fs.readFileSync(path.join(__dirname, 'demo-backend.js'), 'utf8')
+  .replace('var CONFIG = __CONFIG__;', () => `var CONFIG = ${JSON.stringify(config)};`)
+  .replace('var SAMPLE = __SAMPLE__;', () => `var SAMPLE = ${JSON.stringify(SAMPLE)};`);
+if (/var (CONFIG|SAMPLE) = __/.test(demoBackend)) throw new Error('Demo server placeholders were not filled in');
 const svcById = Object.fromEntries(config.services.map((x) => [x.id, x]));
 const dayStr = (n) => addDays(today, n).toISOString().slice(0, 10);
 const fmtDay = (n) => fmt(addDays(today, n), { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -382,17 +400,20 @@ const sitePage = (html) => html
   .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
   .replace(/<script>[\s\S]*?<\/script>/g, '')
   .replace(/href="\/"/g, 'href="#"');
-admin = sitePage(admin)
+const sitePageKeepScripts = (page) => page
+  .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
+  .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
+  .replace(/href="\/"/g, 'href="#"');
+admin = sitePageKeepScripts(admin)
   .replace(/<form class="logout" method="post" action="\/admin\/logout"><button([^>]*) type="submit">/, '<div class="logout"><button$1 type="button">')
   .replace('Log out</button></form>', 'Log out</button></div>')
   .replace('<main class="wrap admin">', `<main class="wrap admin">
-    <p class="preview-note">Preview with sample bookings. On the live site this page is password-protected and shows real bookings as they come in.</p>`)
+    <p class="preview-note">Demo admin: bookings made on the preview website appear here, and changes to hours and time off apply to its booking form. Saved in this browser only. <button type="button" class="ghost demo-reset" onclick="FenixDemo.reset(); location.reload()">Reset demo</button></p>`)
   .replace('<input type="date" id="from">', `<input type="date" id="from" value="${dayStr(0)}">`)
   .replace('<input type="date" id="to">', `<input type="date" id="to" value="${dayStr(30)}">`)
   .replace('<div class="stats" id="stats"></div>', () => `<div class="stats" id="stats"><span class="stat"><strong>${active}</strong>appointments</span><span class="stat"><strong>${hoursBooked}</strong>hours booked</span><span class="stat"><strong>${money2(revenue)}</strong>expected</span></div>`)
   .replace('<div id="list"><p class="empty">Loading…</p></div>', () => `<div id="list">${list}</div>`)
-  .replace('<form class="toolbar" id="block-form">', '<div class="toolbar" id="block-form">')
-  .replace(/(<button type="submit">Add block<\/button>\s*)<\/form>/, '<button type="button">Add block</button>\n      </div>')
+  .replace('<button type="submit">Add block</button>', '<button type="button" data-demo-submit>Add block</button>')
   .replace('name="date" required>', `name="date" required value="${dayStr(0)}">`)
   .replace('<table id="blocks"></table>', () => `<table id="blocks">${blocksHtml}</table>`)
   .replace('</style>', `  .preview-note { background: var(--gold-soft); color: var(--gold-dark); border-radius: 8px; padding: 10px 14px; margin: 0; font-size: .9rem; }
@@ -421,14 +442,23 @@ const weekRows = [1, 2, 3, 4, 5, 6, 0].map((d) => {
 const selectValue = (html, name, value) => html.replace(new RegExp(`(<select name="${name}">[\\s\\S]*?<option value="${value}")`), '$1 selected');
 admin = admin
   .replace('<div class="week" id="week"></div>', () => `<div class="week" id="week">${weekRows}</div>`)
-  .replace('<form id="avail-form" novalidate>', '<div id="avail-form">')
-  .replace(/(<p class="msg" id="avail-msg" role="status"><\/p>\s*<\/div>\s*)<\/form>/, '$1</div>')
-  .replace('<button type="submit">Save hours</button>', '<button type="button">Save hours</button>')
+  .replace('<button type="submit">Save hours</button>', '<button type="button" data-demo-submit>Save hours</button>')
+  // Buttons are type="button" so nothing submits without JavaScript; with it, they fire the forms' handlers.
+  .replace(/addEventListener\('submit',/g, "addEventListener('demo-submit',")
+  .replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n  <script>\n${inline(demoBackend)}\n  </script>\n  <script>
+    document.documentElement.classList.add('demo-js');
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-demo-submit]');
+      if (b && b.form) b.form.dispatchEvent(new Event('demo-submit', { cancelable: true }));
+    });
+  </script>`)
   .replace('</style>', `  .day-row:has(.open:not(:checked)) .times input, .day-row:has(.open:not(:checked)) .times .to { display: none; }
     .day-row:has(.open:not(:checked)) .closed-note { display: inline; }
+    .demo-reset { display: none; margin-left: 8px; padding: 4px 12px !important; font-size: .8rem !important; }
+    .demo-js .demo-reset { display: inline-block; }
   </style>`);
 for (const k of ['slotStepMinutes', 'bufferMinutes', 'minNoticeMinutes', 'maxDaysAhead']) admin = selectValue(admin, k, config[k]);
-if (/<script|id="list"><p class="empty">|<form/.test(admin)) throw new Error('Admin preview still depends on the server');
+if (/action="\/admin|id="list"><p class="empty">|type="submit"/.test(admin)) throw new Error('Admin preview still depends on the server');
 assertOffline('admin-preview.html', admin);
 write('admin-preview.html', admin);
 
@@ -485,8 +515,16 @@ html:has(#staff-login:checked),html:has(#staff-admin:checked){overflow:hidden}
 label.footer-staff{cursor:pointer}`;
 // Styles go in the website's own <head> (the first one; the admin iframe has its own further down).
 html = html
+  .replace('<!--DEMO-BACKEND-->', () => `<script>\n${inline(demoBackend)}\n</script>`)
   .replace('</head>', () => `<style>\n${staffCss}\n</style>\n</head>`)
-  .replace('</body>', () => `${staffOverlay}\n</body>`);
+  .replace('</body>', () => `${staffOverlay}
+  <script>
+    // Reload the admin each time it's opened so new demo bookings show up.
+    (function () {
+      var r = document.getElementById('staff-admin'), f = document.querySelector('.so-admin iframe');
+      if (r && f) r.addEventListener('change', function () { if (r.checked) f.srcdoc = f.srcdoc; });
+    })();
+  </script>\n</body>`);
 if (html.indexOf('.staff-overlay{') > html.indexOf('<body')) throw new Error('Staff overlay styles ended up outside the website head');
 assertOffline('preview.html', html);
 write('preview.html', html);
@@ -544,6 +582,15 @@ nav label:hover { color: #fff; border-color: rgba(255,255,255,.5); }
 <section class="stage s-phone"><div class="phone"><iframe title="Website on a phone" srcdoc="${srcdoc(html)}"></iframe></div></section>
 <section class="stage s-login"><iframe title="Staff login preview" srcdoc="${srcdoc(login)}"></iframe></section>
 <section class="stage s-admin"><iframe title="Admin dashboard preview" srcdoc="${srcdoc(admin)}"></iframe></section>
+<script>
+  // Website, phone and admin share one demo store; reload a tab when you switch to it so it shows the latest.
+  document.querySelectorAll('.tabs-state').forEach(function (r) {
+    r.addEventListener('change', function () {
+      var f = document.querySelector('.s-' + r.id.slice(2) + ' iframe');
+      if (r.checked && f) f.srcdoc = f.srcdoc;
+    });
+  });
+</script>
 </body>
 </html>
 `;
