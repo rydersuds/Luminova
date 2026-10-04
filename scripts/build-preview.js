@@ -306,7 +306,7 @@ const mapCss = `.map-static{position:relative;min-height:380px}
 .map-label span{font-size:.85rem;color:var(--ink-soft)}`;
 
 // ---------- Website preview ----------
-let html = read('index.html');
+let html = read('index.html').replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, ''); // previews are meant to be opened as files
 const start = html.indexOf('<div class="booker" data-booker>');
 const endMarker = '</noscript>';
 const end = html.indexOf('</div>', html.indexOf(endMarker)) + '</div>'.length;

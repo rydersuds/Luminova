@@ -1,0 +1,18 @@
+Massage Fenix website: how to view it
+=====================================
+
+This folder is the real website (with online booking and the staff admin). It runs on a small
+Node.js server, so opening public/index.html by double-clicking will NOT show it properly.
+
+To just look at it:
+  Open the files in massage-fenix-previews.zip instead. They work by double-clicking.
+
+To run the real thing on your computer:
+  1. Install Node.js 22.13 or newer from https://nodejs.org
+  2. Extract this whole zip (don't open files from inside the zip).
+  3. Open a terminal in this folder and run:
+       Mac/Linux:          ADMIN_PASSWORD="choose-a-password" npm start
+       Windows PowerShell: $env:ADMIN_PASSWORD="choose-a-password"; npm start
+  4. Visit http://localhost:3000 . Staff login is at the bottom of the page.
+
+To put it online: see README.md ("Deploying").

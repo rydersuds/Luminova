@@ -40,6 +40,15 @@
   </script>
 </head>
 <body>
+  <!--FILE-NOTICE-->
+  <script>
+    // Opened straight from the folder (not through the server): explain how to view it properly.
+    if (location.protocol === 'file:') document.write('<div style="position:sticky;top:0;z-index:9999;margin:0;padding:14px 18px;background:#152139;color:#fff;font:15px/1.5 system-ui,sans-serif;border-bottom:3px solid #c9a55c">' +
+      '<strong style="color:#e2c992">You\u2019ve opened the website\u2019s source file directly.</strong> ' +
+      'It needs its server for styles, booking and the admin. To view it: extract the whole zip, then run <code style="background:rgba(255,255,255,.12);padding:1px 6px;border-radius:4px">npm start</code> in the folder and open http://localhost:3000 (see README.md). ' +
+      'Or open the ready-made preview files in <strong>massage-fenix-previews.zip</strong>, which work by double-clicking.</div>');
+  </script>
+  <!--/FILE-NOTICE-->
   <a class="skip" href="#main">Skip to content</a>
 
   <div class="topbar">
@@ -52,7 +61,7 @@
   <header class="site-header" id="top">
     <div class="wrap header-inner">
       <a class="brand" href="#top" aria-label="Massage Fenix home">
-        <svg class="brand-mark" viewBox="0 0 40 48" aria-hidden="true">
+        <svg class="brand-mark" viewBox="0 0 40 48" width="34" height="42" aria-hidden="true">
           <path class="wing-a" d="M20 2c-6 8-15 12-16 24 5-6 10-8 14-8-3 4-5 9-3 16 2-8 6-12 11-14-5-5-7-11-6-18z"/>
           <path class="wing-b" d="M22 20c6 1 12 6 12 14 0 6-5 11-11 12 4-3 6-7 5-11-1 4-5 7-9 7 5-4 6-11 3-22z"/>
         </svg>
@@ -67,8 +76,8 @@
       </nav>
       <input class="theme-state" type="checkbox" id="theme-toggle" role="switch" aria-label="Dark mode">
       <label class="theme-toggle" for="theme-toggle" title="Switch between light and dark mode">
-        <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></g></svg>
-        <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1z" fill="currentColor"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></g></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1z" fill="currentColor"/></svg>
       </label>
       <div class="header-cta">
         <a class="header-phone" href="tel:+14037149481">403 714 9481<small>Call to book</small></a>
@@ -340,7 +349,7 @@
       <p class="footer-brand">Massage <em>Fenix</em></p>
       <p class="footer-tag">Registered massage therapy</p>
       <p>70 Elgin Meadows Way SE, Calgary · <a href="tel:+14037149481">403 714 9481</a> · <a href="mailto:info@massagecalgary.ca">info@massagecalgary.ca</a></p>
-      <a class="footer-staff" href="/admin/login"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Staff login</a>
+      <a class="footer-staff" href="/admin/login"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Staff login</a>
       <p class="fine">© <span data-year>2026</span> Massage Fenix. All rights reserved.</p>
     </div>
   </footer>
@@ -377,7 +386,7 @@
                 <div class="bk-pills" data-durations></div>
               </fieldset>
               <aside class="bk-package" aria-label="Package booking">
-                <span class="bk-package-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z" fill="currentColor"/></svg></span>
+                <span class="bk-package-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z" fill="currentColor"/></svg></span>
                 <div class="bk-package-text">
                   <strong>Booking the 5-massage package?</strong>
                   <p>Five therapeutic massages for $600, less 10%. Please call us to book the package.</p>
@@ -429,7 +438,7 @@
             <!-- Done -->
             <div class="bk-step bk-done" data-step="4" hidden tabindex="-1">
               <div class="bk-done-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg viewBox="0 0 24 24" width="32" height="32"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
               <h3>You're booked!</h3>
               <p data-done-text></p>
