@@ -134,19 +134,39 @@ test('staff can log in with the form, use the admin, and log out', async () => {
 
   const ok = await form('secret');
   assert.equal(ok.status, 303);
-  assert.equal(ok.headers.get('location'), '/admin');
+  assert.equal(ok.headers.get('location'), '/admin?signedin=1');
   const cookie = ok.headers.get('set-cookie');
-  assert.match(cookie, /fenix_admin=[^;]+; Path=\/; HttpOnly; SameSite=Strict/);
+  assert.match(cookie, /fenix_admin=[^;]+; Path=\/; HttpOnly; SameSite=Lax; Max-Age=\d+$/, 'not Secure over plain http, or browsers would drop it');
   const session = { Cookie: cookie.split(';')[0] };
   assert.equal((await get('/admin', session)).status, 200);
+  assert.equal((await get('/admin?signedin=1', session)).status, 200);
   assert.equal((await get('/api/admin/bookings', session)).status, 200);
+  assert.deepEqual(await (await get('/api/admin/session', session)).json(), { signedIn: true });
+  assert.deepEqual(await (await get('/api/admin/session')).json(), { signedIn: false });
+
+  // Signed in but the browser dropped the cookie: explain instead of showing a blank login.
+  const lost = await fetch(base + '/admin?signedin=1', { redirect: 'manual' });
+  assert.equal(lost.headers.get('location'), '/admin/login?nocookie=1');
+  assert.match(await (await get('/admin/login?nocookie=1')).text(), /didn&rsquo;t keep the login cookie/);
+
+  // The login page signs in with fetch and gets JSON back, so it can show any problem.
+  const json = (password) => fetch(base + '/admin/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    body: new URLSearchParams({ password }),
+  });
+  const jsonBad = await json('nope');
+  assert.equal(jsonBad.status, 401);
+  assert.match((await jsonBad.json()).error, /didn’t match/);
+  const jsonOk = await json('  secret ');
+  assert.equal(jsonOk.status, 200, 'stray spaces around the password are ignored');
+  assert.match(jsonOk.headers.get('set-cookie'), /^fenix_admin=/);
 
   // A tampered session is rejected.
   const forged = { Cookie: session.Cookie.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')) };
   assert.equal((await get('/api/admin/bookings', forged)).status, 401);
 
   // Successful logins never lock anyone out; repeated wrong passwords do.
-  for (let i = 0; i < 12; i++) assert.equal((await form('secret')).headers.get('location'), '/admin');
+  for (let i = 0; i < 12; i++) assert.equal((await form('secret')).headers.get('location'), '/admin?signedin=1');
   for (let i = 0; i < 10; i++) await form('nope');
   assert.equal((await form('secret')).headers.get('location'), '/admin/login?locked=1');
 

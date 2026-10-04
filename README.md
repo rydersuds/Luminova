@@ -50,4 +50,4 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 
 ## Deploying
 
-Any host that runs a long-lived Node process and has a persistent disk will work, such as Render, Railway, Fly.io or a small VPS. Serve it over HTTPS, because the admin login uses HTTP Basic auth.
+Any host that runs a long-lived Node process and has a persistent disk will work, such as Render, Railway, Fly.io or a small VPS. Serve it over HTTPS so the staff password travels encrypted. The site needs Node running `npm start`: uploading the files to plain file hosting (cPanel file manager, GitHub Pages, Netlify drop and similar) shows the pages, but staff login and bookings can't work there, and the login page will say so.

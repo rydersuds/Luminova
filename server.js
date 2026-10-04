@@ -24,7 +24,7 @@ try {
 
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || '').trim();
 const NOTIFY_WEBHOOK_URL = process.env.NOTIFY_WEBHOOK_URL || '';
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -240,7 +240,7 @@ const SESSION_HOURS = 12;
 const sessionKey = () => crypto.createHash('sha256').update('fenix-session:' + ADMIN_PASSWORD).digest();
 const sign = (data) => crypto.createHmac('sha256', sessionKey()).update(data).digest('base64url');
 function passwordMatches(pass) {
-  const a = crypto.createHash('sha256').update(String(pass)).digest();
+  const a = crypto.createHash('sha256').update(String(pass).trim()).digest();
   const b = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest();
   return crypto.timingSafeEqual(a, b);
 }
@@ -258,11 +258,16 @@ function validSession(token) {
 function cookies(req) {
   return Object.fromEntries((req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).filter((kv) => kv[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
 }
+// Mark the cookie Secure only when the visit really is over HTTPS: browsers drop a Secure
+// cookie sent over plain http (Safari even on localhost), which would make login silently fail.
 function isHttps(req) {
-  return process.env.COOKIE_SECURE === '1' || (TRUST_PROXY && req.headers['x-forwarded-proto'] === 'https');
+  if (req.socket.encrypted) return true;
+  const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  if (proto) return proto === 'https' && (TRUST_PROXY || process.env.COOKIE_SECURE === '1');
+  return process.env.COOKIE_SECURE === '1' && !/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(req.headers.host || '');
 }
 function sessionCookie(req, value, maxAge) {
-  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${isHttps(req) ? '; Secure' : ''}`;
+  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${isHttps(req) ? '; Secure' : ''}`;
 }
 function isAdmin(req) {
   if (!ADMIN_PASSWORD) return false;
@@ -280,6 +285,7 @@ function requireAdmin(req, res, { page = false } = {}) {
   return false;
 }
 const loginFailures = new Map();
+const NO_COOKIE_MESSAGE = 'Your password was right, but this browser didn&rsquo;t keep the login cookie. Please allow cookies for this site (or turn off private browsing or strict tracking protection) and try again.';
 function redirect(res, location, headers = {}) { send(res, 303, '', { Location: location, ...headers }); }
 
 function readForm(req, limit = 4 * 1024) {
@@ -436,22 +442,32 @@ async function handle(req, res) {
     const m = url.searchParams;
     return serveLogin(res, m.has('error') ? 'That password didn&rsquo;t match. Please try again.'
       : m.has('locked') ? 'Too many attempts. Please wait 15 minutes and try again.'
+      : m.has('nocookie') ? NO_COOKIE_MESSAGE
       : m.has('out') ? 'You&rsquo;re signed out.' : '');
   }
 
   if (p === '/admin/login' && req.method === 'POST') {
-    if (!ADMIN_PASSWORD) return send(res, 503, 'Admin is disabled.');
+    // The login page posts with fetch and asks for JSON so it can show what went wrong;
+    // without JavaScript it's a plain form post and we redirect.
+    const wantsJson = /application\/json/.test(req.headers.accept || '');
+    if (!ADMIN_PASSWORD) return wantsJson ? send(res, 503, { error: 'The staff login is turned off: ADMIN_PASSWORD isn’t set on the server.' }) : send(res, 503, 'Admin is disabled.');
     // Only wrong passwords count towards the lockout: 10 failures in 15 minutes.
     const ip = clientIp(req);
     const recent = (loginFailures.get(ip) || []).filter((t) => Date.now() - t < 15 * 60 * 1000);
-    if (recent.length >= 10) return redirect(res, '/admin/login?locked=1');
+    if (recent.length >= 10) return wantsJson ? send(res, 429, { error: 'Too many attempts. Please wait 15 minutes and try again.' }) : redirect(res, '/admin/login?locked=1');
     const form = await readForm(req);
     if (!passwordMatches(form.password || '')) {
       loginFailures.set(ip, [...recent, Date.now()]);
-      return redirect(res, '/admin/login?error=1');
+      return wantsJson ? send(res, 401, { error: 'That password didn’t match. Please try again.' }) : redirect(res, '/admin/login?error=1');
     }
     loginFailures.delete(ip);
-    return redirect(res, '/admin', { 'Set-Cookie': sessionCookie(req, newSession(), SESSION_HOURS * 3600) });
+    const cookie = { 'Set-Cookie': sessionCookie(req, newSession(), SESSION_HOURS * 3600), 'Cache-Control': 'no-store' };
+    return wantsJson ? send(res, 200, { ok: true }, cookie) : redirect(res, '/admin?signedin=1', cookie);
+  }
+
+  // Lets the login page check that the browser kept the login cookie.
+  if (p === '/api/admin/session' && req.method === 'GET') {
+    return send(res, 200, { signedIn: isAdmin(req) }, { 'Cache-Control': 'no-store' });
   }
 
   if (p === '/admin/logout' && req.method === 'POST') {
@@ -459,6 +475,8 @@ async function handle(req, res) {
   }
 
   if (p === '/admin' || p === '/admin/') {
+    // Just signed in but the cookie didn't come back: say so instead of showing a blank login.
+    if (ADMIN_PASSWORD && !isAdmin(req) && url.searchParams.has('signedin')) return redirect(res, '/admin/login?nocookie=1');
     if (!requireAdmin(req, res, { page: true })) return;
     return serveFile(res, path.join(__dirname, 'admin', 'index.html'));
   }

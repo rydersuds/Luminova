@@ -81,5 +81,45 @@
       <a class="back" href="/">← Back to the website</a>
     </div>
   </main>
+  <script>
+    // Sign in without leaving the page, so a problem shows up as a message instead of
+    // just an empty password box. Without JavaScript the form still posts normally.
+    (function () {
+      var form = document.querySelector('form[action="/admin/login"]');
+      if (!form || location.protocol === 'file:' || !window.fetch) return;
+      var input = form.querySelector('input[name=password]'), button = form.querySelector('button[type=submit]');
+      function say(text) {
+        var box = document.querySelector('.login-msg');
+        if (!box) { box = document.createElement('p'); box.className = 'login-msg'; box.setAttribute('role', 'alert'); form.parentNode.insertBefore(box, form); }
+        box.textContent = text;
+      }
+      function busy(on) { button.disabled = on; button.textContent = on ? 'Logging in…' : 'Log in'; }
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        busy(true);
+        fetch('/admin/login', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+          body: new URLSearchParams({ password: input.value }).toString(),
+        }).then(function (r) {
+          var type = r.headers.get('content-type') || '';
+          if (type.indexOf('application/json') === -1) throw new Error('no-server');
+          return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+        }).then(function (res) {
+          if (!res.ok) { busy(false); say(res.data.error || 'Couldn’t log in. Please try again.'); input.select(); return; }
+          return fetch('/api/admin/session', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
+            if (s.signedIn) { location.href = '/admin'; return; }
+            busy(false);
+            say('Your password was right, but this browser didn’t keep the login cookie. Please allow cookies for this site (or turn off private browsing or strict tracking protection) and try again.');
+          });
+        }).catch(function (err) {
+          busy(false);
+          say(err && err.message === 'no-server'
+            ? 'This page can’t reach the Massage Fenix server. The site seems to be hosted as plain files, so logins and bookings can’t work here. It needs to run with “npm start” (see README.md, “Deploying”).'
+            : 'Couldn’t reach the server. Check your connection and try again.');
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
