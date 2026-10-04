@@ -11,6 +11,8 @@
       if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark';
     } catch (e) { /* storage unavailable */ }
   </script>
+  <link rel="icon" type="image/png" href="/images/logo-mark-64.png">
+  <link rel="apple-touch-icon" href="/images/logo-mark-180.png">
   <link rel="stylesheet" href="/fonts/fonts.css">
   <link rel="stylesheet" href="/styles.css">
   <style>
@@ -103,8 +105,7 @@
     @media (max-width: 640px) {
       .admin-header .view-site { display: none; }
       .admin-header .header-inner { gap: 10px; }
-      .admin-header .brand-mark { width: 28px; height: 34px; }
-      .admin-header .brand-text em { font-size: 1.45rem; }
+      .admin-header .brand-logo { height: 52px; }
       .admin-tag { padding: 3px 9px; font-size: .64rem; }
       .tabs { gap: 8px; }
       main.admin .tabs label { align-items: center; text-align: center; padding: 12px 6px; font-size: .88rem; border-radius: 16px; }
@@ -170,11 +171,8 @@
   <header class="site-header admin-header">
     <div class="wrap header-inner">
       <a class="brand" href="/" aria-label="Massage Fenix website">
-        <svg class="brand-mark" viewBox="0 0 40 48" width="34" height="42" aria-hidden="true">
-          <path class="wing-a" d="M20 2c-6 8-15 12-16 24 5-6 10-8 14-8-3 4-5 9-3 16 2-8 6-12 11-14-5-5-7-11-6-18z"/>
-          <path class="wing-b" d="M22 20c6 1 12 6 12 14 0 6-5 11-11 12 4-3 6-7 5-11-1 4-5 7-9 7 5-4 6-11 3-22z"/>
-        </svg>
-        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>
+        <img class="brand-logo logo-light" src="/images/logo.png" alt="Massage Fenix" width="400" height="262">
+        <img class="brand-logo logo-dark" src="/images/logo-dark.png" alt="" width="400" height="262">
       </a>
       <span class="admin-tag">Admin</span>
       <input class="theme-state" type="checkbox" id="theme-toggle" role="switch" aria-label="Dark mode">

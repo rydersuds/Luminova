@@ -225,7 +225,15 @@ function write(name, content) {
   fs.writeFileSync(path.join(dist, name), content);
   console.log('Wrote', path.join('dist', name), `(${Math.round(content.length / 1024)} KB)`);
 }
+// Photos and logos go into the previews as data URIs, so they work as single offline files.
+function inlineImages(page) {
+  return page.replace(/(src|href)="\/?images\/([\w.-]+)"/g, (m, attr, file) => {
+    const type = { '.jpg': 'image/jpeg', '.png': 'image/png' }[path.extname(file)];
+    return `${attr}="data:${type};base64,${fs.readFileSync(path.join(pub, 'images', file)).toString('base64')}"`;
+  });
+}
 function assertOffline(name, content) {
+  if (/(?:href|src)="\/?images\//.test(content)) throw new Error(`${name} still points at an image file`);
   const external = content.match(/(?:href|src)="https?:\/\/[^"]+"/g);
   if (external) throw new Error(`${name} still links outside the preview: ${external.join(', ')}`);
 }
@@ -306,7 +314,7 @@ const mapCss = `.map-static{position:relative;min-height:380px}
 .map-label span{font-size:.85rem;color:var(--ink-soft)}`;
 
 // ---------- Website preview ----------
-let html = read('index.html').replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, ''); // previews are meant to be opened as files
+let html = inlineImages(read('index.html')).replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, ''); // previews are meant to be opened as files
 const start = html.indexOf('<div class="booker" data-booker>');
 const endMarker = '</noscript>';
 const end = html.indexOf('</div>', html.indexOf(endMarker)) + '</div>'.length;
@@ -395,13 +403,13 @@ const blocksHtml = `<thead><tr><th>Date</th><th>Time</th><th>Reason</th><th></th
 
 let admin = fs.readFileSync(path.join(__dirname, '..', 'admin', 'index.html'), 'utf8');
 // Admin pages share the website's stylesheet; inline it (plus fonts) and drop scripts.
-const sitePage = (html) => html
+const sitePage = (html) => inlineImages(html)
   .replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, '')
   .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
   .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
   .replace(/<script>[\s\S]*?<\/script>/g, '')
   .replace(/href="\/"/g, 'href="#"');
-const sitePageKeepScripts = (page) => page
+const sitePageKeepScripts = (page) => inlineImages(page)
   .replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, '')
   .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
   .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
@@ -477,10 +485,10 @@ assertOffline('login-preview.html', login);
 write('login-preview.html', login);
 
 // ---------- Website preview: staff login -> admin, without a server ----------
-const loginFile = fs.readFileSync(path.join(__dirname, '..', 'admin', 'login.html'), 'utf8');
+const loginFile = inlineImages(fs.readFileSync(path.join(__dirname, '..', 'admin', 'login.html'), 'utf8'));
 const loginCss = loginFile.match(/<style>([\s\S]*?)<\/style>/)[1];
 const loginCard = loginFile.match(/<div class="login-card">[\s\S]*?<a class="back"[\s\S]*?<\/a>\s*<\/div>/)[0]
-  .replace(/<a class="brand" href="\/"([^>]*)>/, '<span class="brand"$1>').replace('</svg>\n        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>\n      </a>', '</svg>\n        <span class="brand-text"><small>Massage</small><em>Fenix</em></span>\n      </span>')
+  .replace(/<a class="brand" href="\/"([^>]*)>([\s\S]*?)<\/a>/, '<span class="brand"$1>$2</span>')
   .replace(' autofocus>', '>')
   .replace('<!--MESSAGE-->', '<p class="login-msg login-note">Preview: any password works here. On the live site it\'s your staff password.</p>')
   .replace('<form method="post" action="/admin/login">', '<div class="login-form">')
