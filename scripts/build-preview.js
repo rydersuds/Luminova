@@ -396,11 +396,13 @@ const blocksHtml = `<thead><tr><th>Date</th><th>Time</th><th>Reason</th><th></th
 let admin = fs.readFileSync(path.join(__dirname, '..', 'admin', 'index.html'), 'utf8');
 // Admin pages share the website's stylesheet; inline it (plus fonts) and drop scripts.
 const sitePage = (html) => html
+  .replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, '')
   .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
   .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
   .replace(/<script>[\s\S]*?<\/script>/g, '')
   .replace(/href="\/"/g, 'href="#"');
 const sitePageKeepScripts = (page) => page
+  .replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, '')
   .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
   .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
   .replace(/href="\/"/g, 'href="#"');

@@ -145,6 +145,28 @@
   </style>
 </head>
 <body>
+  <!--FILE-NOTICE-->
+  <script>
+    // Opened straight from a folder (not through the server): explain, and keep server-only
+    // links (Staff login, the admin, logging in) from leading to a "file not found" page.
+    if (location.protocol === 'file:') {
+      document.write('<div id="file-notice" style="position:sticky;top:0;z-index:9999;margin:0;padding:14px 18px;background:#152139;color:#fff;font:15px/1.5 system-ui,sans-serif;border-bottom:3px solid #c9a55c">' +
+        '<strong style="color:#e2c992">You\u2019ve opened the website\u2019s source file directly.</strong> ' +
+        '<span id="file-notice-extra"></span>It needs its server for styles, booking, Staff login and the admin. To run it: extract the whole zip, run <code style="background:rgba(255,255,255,.12);padding:1px 6px;border-radius:4px">npm start</code> in the folder and open http://localhost:3000 (see HOW-TO-VIEW.txt). ' +
+        'To just look around, open the preview files in <strong>massage-fenix-previews.zip</strong> (website-preview.html has a working Staff login and admin).</div>');
+      var stop = function (e) {
+        var t = e.target.closest && e.target.closest('a[href^="/"], form[action^="/"] button, form[action^="/"] [type=submit]');
+        if (!t) return;
+        e.preventDefault();
+        var extra = document.getElementById('file-notice-extra'), box = document.getElementById('file-notice');
+        if (extra) { extra.innerHTML = '<br><strong style="color:#ffb4a2">That link needs the server, so it can\u2019t open from a file.</strong><br>'; }
+        if (box) { box.scrollIntoView({ block: 'start' }); box.style.outline = '3px solid #ff5a36'; }
+      };
+      document.addEventListener('click', stop, true);
+      document.addEventListener('submit', function (e) { if (e.target.matches && e.target.matches('form[action^="/"]')) stop({ target: e.target.querySelector('button') || e.target, preventDefault: function () { e.preventDefault(); } }); }, true);
+    }
+  </script>
+  <!--/FILE-NOTICE-->
   <header class="site-header admin-header">
     <div class="wrap header-inner">
       <a class="brand" href="/" aria-label="Massage Fenix website">
