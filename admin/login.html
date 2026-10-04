@@ -103,9 +103,18 @@
           body: new URLSearchParams({ password: input.value }).toString(),
         }).then(function (r) {
           var type = r.headers.get('content-type') || '';
-          if (type.indexOf('application/json') === -1) throw new Error('no-server');
-          return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+          if (type.indexOf('application/json') !== -1) return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+          // An older server.js answers with a redirect instead of JSON: follow what it meant.
+          var where = r.redirected ? new URL(r.url).pathname + new URL(r.url).search : '';
+          if (/^\/admin\/?$/.test(where)) { location.href = '/admin'; return null; }
+          if (/error=1/.test(where)) return { ok: false, data: { error: 'That password didn’t match. Please try again.' } };
+          if (/locked=1/.test(where)) return { ok: false, data: { error: 'Too many attempts. Please wait 15 minutes and try again.' } };
+          // Otherwise: is the Node server there at all?
+          return fetch('/api/config', { cache: 'no-store' }).then(function (c) {
+            throw new Error((c.headers.get('content-type') || '').indexOf('application/json') !== -1 ? 'old-server' : 'no-server');
+          }, function () { throw new Error('no-server'); });
         }).then(function (res) {
+          if (!res) return;
           if (!res.ok) { busy(false); say(res.data.error || 'Couldn’t log in. Please try again.'); input.select(); return; }
           return fetch('/api/admin/session', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
             if (s.signedIn) { location.href = '/admin'; return; }
@@ -114,7 +123,9 @@
           });
         }).catch(function (err) {
           busy(false);
-          say(err && err.message === 'no-server'
+          say(err && err.message === 'old-server'
+            ? 'The website’s server is running an older version that doesn’t match this login page. Replace server.js as well, then restart the server (or redeploy on your host) and try again.'
+            : err && err.message === 'no-server'
             ? 'This page can’t reach the Massage Fenix server. The site seems to be hosted as plain files, so logins and bookings can’t work here. It needs to run with “npm start” (see README.md, “Deploying”).'
             : 'Couldn’t reach the server. Check your connection and try again.');
         });
