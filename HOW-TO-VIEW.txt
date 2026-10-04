@@ -10,9 +10,12 @@ To just look at it:
 To run the real thing on your computer:
   1. Install Node.js 22.13 or newer from https://nodejs.org
   2. Extract this whole zip (don't open files from inside the zip).
-  3. Open a terminal in this folder and run:
-       Mac/Linux:          ADMIN_PASSWORD="choose-a-password" npm start
-       Windows PowerShell: $env:ADMIN_PASSWORD="choose-a-password"; npm start
+  3. Open a terminal in this folder and run:   npm start
   4. Visit http://localhost:3000 . Staff login is at the bottom of the page.
+
+The staff password is in the private file ".env" in this folder (ADMIN_PASSWORD=...).
+Edit that line to change it, then restart. Keep .env private: don't email it or put it on GitHub.
+On a hosting service (Render, Railway, ...), either upload .env with the site or set
+ADMIN_PASSWORD in the host's environment settings.
 
 To put it online: see README.md ("Deploying").

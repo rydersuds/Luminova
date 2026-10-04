@@ -9,6 +9,19 @@ const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const config = require('./config');
 
+// Private settings (like ADMIN_PASSWORD) can live in a .env file next to this one, as NAME=value
+// lines. It is listed in .gitignore so it never reaches GitHub. Real environment variables win.
+try {
+  for (const line of fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!m || line.trim().startsWith('#')) continue;
+    const value = m[2].replace(/^(['"])(.*)\1$/, '$2');
+    if (process.env[m[1]] === undefined) process.env[m[1]] = value;
+  }
+} catch (err) {
+  if (err.code !== 'ENOENT') console.error('Could not read .env:', err.message);
+}
+
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';

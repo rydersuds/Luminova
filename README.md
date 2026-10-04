@@ -15,7 +15,7 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 | Environment variable | Purpose |
 | --- | --- |
 | `PORT` | Port to listen on (default `3000`). |
-| `ADMIN_PASSWORD` | The staff password. Turns on the admin; it's disabled when this is unset. |
+| `ADMIN_PASSWORD` | The staff password. Turns on the admin; it's disabled when this is unset. Can be set in a private `.env` file in the project folder (see `.env.example`); `.env` is in `.gitignore` and never committed. |
 | `COOKIE_SECURE` | Set to `1` when the site is served over HTTPS (or use `TRUST_PROXY=1` behind an HTTPS proxy) so the login cookie is marked Secure. |
 | `DATA_DIR` | Where the SQLite database is stored (default `./data`). Use a persistent disk in production. |
 | `NOTIFY_WEBHOOK_URL` | Optional. Each new booking is POSTed here as JSON with a `text` summary. This works with Slack, or with Zapier or Make to forward bookings by email or SMS. |
