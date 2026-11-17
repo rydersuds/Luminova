@@ -8,6 +8,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const config = require('./config');
+const { sendMail } = require('./mailer');
 
 // Private settings (like ADMIN_PASSWORD) can live in a .env file next to this one, as NAME=value
 // lines. It is listed in .gitignore so it never reaches GitHub. Real environment variables win.
@@ -26,6 +27,18 @@ const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || '').trim();
 const NOTIFY_WEBHOOK_URL = process.env.NOTIFY_WEBHOOK_URL || '';
+// Email for new bookings: an SMTP account to send from, and who to tell.
+const EMAIL = {
+  host: (process.env.SMTP_HOST || '').trim(),
+  port: Number(process.env.SMTP_PORT) || 465,
+  user: (process.env.SMTP_USER || '').trim(),
+  pass: (process.env.SMTP_PASS || '').replace(/\s+/g, ''), // app passwords are often copied with spaces
+  from: (process.env.SMTP_FROM || '').trim() || (process.env.SMTP_USER ? `Massage Fenix website <${process.env.SMTP_USER.trim()}>` : ''),
+  to: (process.env.NOTIFY_EMAIL || '').split(',').map((s) => s.trim()).filter(Boolean),
+};
+const EMAIL_ON = Boolean(EMAIL.host && EMAIL.from && EMAIL.to.length);
+// The site's public address, for the admin link in emails. Set, never taken from a request.
+const SITE_URL = (process.env.SITE_URL || '').trim().replace(/\/+$/, '');
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -285,6 +298,7 @@ function requireAdmin(req, res, { page = false } = {}) {
   return false;
 }
 const loginFailures = new Map();
+let lastTestEmail = 0;
 const NO_COOKIE_MESSAGE = 'Your password was right, but this browser didn&rsquo;t keep the login cookie. Please allow cookies for this site (or turn off private browsing or strict tracking protection) and try again.';
 function redirect(res, location, headers = {}) { send(res, 303, '', { Location: location, ...headers }); }
 
@@ -357,7 +371,44 @@ function newRef() {
   return ref;
 }
 
+function fmtDateLong(date) {
+  return new Date(date + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+function fmtTime12(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${(h % 12) || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+}
+function bookingEmail(b) {
+  const day = fmtDateLong(b.date);
+  const price = b.firstVisit ? `$${b.total} (first visit, ${b.discountPercent}% off $${b.price})` : `$${b.total}`;
+  return {
+    subject: `New booking: ${b.service}, ${day.replace(/, \d{4}$/, '')} at ${fmtTime12(b.time)} (${b.name})`,
+    text: [
+      'You have a new booking from the website.', '',
+      `Client:    ${b.name}`,
+      `Phone:     ${b.phone}`,
+      `Email:     ${b.email}`, '',
+      `Massage:   ${b.service}, ${b.duration} min`,
+      `When:      ${day} at ${fmtTime12(b.time)}`,
+      `Price:     ${price}`,
+      `Notes:     ${b.notes || '(none)'}`,
+      `Booking #: ${b.ref}`, '',
+      'Reply to this email to write to the client.',
+      SITE_URL ? `See all bookings: ${SITE_URL}/admin` : 'See all bookings: Staff login, at the bottom of your website.',
+    ].join('\n'),
+  };
+}
+async function emailNotify(booking) {
+  if (!EMAIL_ON) return;
+  try {
+    await sendMail({ ...EMAIL, replyTo: `${booking.name} <${booking.email}>`, ...bookingEmail(booking) });
+  } catch (err) {
+    console.error('Booking email failed:', err.message);
+  }
+}
+
 async function notify(booking) {
+  emailNotify(booking);
   if (!NOTIFY_WEBHOOK_URL) return;
   const when = `${booking.date} at ${booking.time}`;
   try {
@@ -483,6 +534,21 @@ async function handle(req, res) {
 
   if (p.startsWith('/api/admin/')) {
     if (!requireAdmin(req, res)) return;
+
+    if (p === '/api/admin/email' && req.method === 'GET') {
+      return send(res, 200, { on: EMAIL_ON, to: EMAIL.to });
+    }
+    if (p === '/api/admin/email/test' && req.method === 'POST') {
+      if (!EMAIL_ON) return send(res, 400, { error: 'Email isn’t set up yet. Add the SMTP settings and NOTIFY_EMAIL to the .env file, then restart.' });
+      if (Date.now() - lastTestEmail < 10000) return send(res, 429, { error: 'Please wait a few seconds before sending another test.' });
+      lastTestEmail = Date.now();
+      try {
+        await sendMail({ ...EMAIL, subject: 'Test: booking emails are working', text: 'This is a test from your Massage Fenix website.\n\nNew bookings will be emailed to this address.' });
+        return send(res, 200, { ok: true, to: EMAIL.to });
+      } catch (err) {
+        return send(res, 502, { error: `The test email couldn’t be sent. ${err.message}` });
+      }
+    }
     let m;
 
     if (p === '/api/admin/bookings' && req.method === 'GET') {
@@ -563,6 +629,7 @@ const server = http.createServer((req, res) => {
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`Massage Fenix running on http://localhost:${PORT}`);
+    console.log(EMAIL_ON ? `Booking emails go to ${EMAIL.to.join(', ')}` : 'Booking emails are off (see "Booking emails" in README.md)');
     if (!ADMIN_PASSWORD) console.log('Admin dashboard disabled: set ADMIN_PASSWORD to enable /admin');
   });
 }

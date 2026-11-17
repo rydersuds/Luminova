@@ -67,6 +67,9 @@
     .msg.ok { color: #3f9a66; }
     .table-wrap { overflow-x: auto; }
     .sub { margin: -4px 0 18px; color: var(--ink-soft); }
+    .email-box { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--glass-edge, var(--line)); }
+    .email-box p { margin: 0; flex: 1 1 260px; color: var(--ink-soft); font-size: .92rem; }
+    .email-box .msg { flex-basis: 100%; margin: 0; }
     /* Tabs (radio buttons, so they also work without JavaScript) */
     .tab-state { position: absolute; opacity: 0; pointer-events: none; }
     .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -206,6 +209,11 @@
       </div>
       <div class="stats" id="stats"></div>
       <div id="list"><p class="empty">Loading…</p></div>
+      <div class="email-box" id="email-box" hidden>
+        <p id="email-status">📧 Checking booking emails…</p>
+        <button type="button" class="ghost" id="email-test">Send test email</button>
+        <p class="msg" id="email-msg" role="status"></p>
+      </div>
     </section>
 
     <section class="card tab-pane p-hours" id="availability">
@@ -400,6 +408,26 @@
     $('#today').addEventListener('click', () => setRange(7));
     $('#block-form').date.value = localToday();
     setRange(30);
+
+    // Booking emails: say where they go, and let staff send a test.
+    api('/api/admin/email').then((e) => {
+      $('#email-box').hidden = false;
+      $('#email-status').textContent = e.on
+        ? `📧 New bookings are emailed to ${e.to.join(', ')}.`
+        : '📧 Booking emails are off. They can be turned on in the website’s .env file (see README.md, “Booking emails”).';
+      $('#email-test').hidden = !e.on;
+    }).catch(() => {});
+    $('#email-test').addEventListener('click', async () => {
+      const btn = $('#email-test'), msg = $('#email-msg');
+      btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Sending…';
+      try {
+        const r = await api('/api/admin/email/test', { method: 'POST' });
+        msg.className = 'msg ok'; msg.textContent = `Sent to ${r.to.join(', ')}. Check the inbox (and spam folder).`;
+      } catch (err) {
+        msg.className = 'msg err'; msg.textContent = err.message;
+      }
+      btn.disabled = false;
+    });
     loadBlocks();
     // ---------- Hours & availability ----------
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];

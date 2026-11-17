@@ -7,6 +7,8 @@ const path = require('node:path');
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fenix-test-'));
 process.env.DATA_DIR = dataDir;
 process.env.ADMIN_PASSWORD = 'secret';
+process.env.SMTP_HOST = ''; // never send real email from tests, whatever .env says
+process.env.NOTIFY_WEBHOOK_URL = '';
 const { server } = require('../server');
 
 let base;

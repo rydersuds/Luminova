@@ -180,6 +180,8 @@
         return json(200, Object.assign(availability(), { saved: true }));
       }
     }
+    if (p === '/api/admin/email' && method === 'GET') return json(200, { on: true, to: ['info@massagecalgary.ca'] });
+    if (p === '/api/admin/email/test' && method === 'POST') return json(400, { error: 'This is a preview, so no email is sent. On the live site this sends a real test email.' });
     return json(404, { error: 'Not found' });
   }
 

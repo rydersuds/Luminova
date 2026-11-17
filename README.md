@@ -18,6 +18,7 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 | `ADMIN_PASSWORD` | The staff password. Turns on the admin; it's disabled when this is unset. Can be set in a private `.env` file in the project folder (see `.env.example`); `.env` is in `.gitignore` and never committed. |
 | `COOKIE_SECURE` | Set to `1` when the site is served over HTTPS (or use `TRUST_PROXY=1` behind an HTTPS proxy) so the login cookie is marked Secure. |
 | `DATA_DIR` | Where the SQLite database is stored (default `./data`). Use a persistent disk in production. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `NOTIFY_EMAIL` | Optional. Email each new booking; see "Booking emails" below. `SMTP_FROM` optionally sets the sender (default: `SMTP_USER`); `SITE_URL` adds an admin link. |
 | `NOTIFY_WEBHOOK_URL` | Optional. Each new booking is POSTed here as JSON with a `text` summary. This works with Slack, or with Zapier or Make to forward bookings by email or SMS. |
 | `TRUST_PROXY` | Set to `1` behind a reverse proxy so rate limiting uses the real client IP. |
 
@@ -47,6 +48,26 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
   - `preview-all.html`: one page with tabs for the website, the website in a phone frame, and the admin dashboard
   - `preview.html`: the website with a drawn map instead of Google Maps. With JavaScript, a small in-browser demo server (`scripts/demo-backend.js`) stands in for `server.js`, so demo bookings show up in the admin (Staff login in the footer), and hours and time off changed there apply to the booking form. Demo data is kept in the browser; the admin's Reset demo button clears it. Without JavaScript, a CSS-only version of booking and login still works.
   - `admin-preview.html`: the admin dashboard, sharing the same demo data
+
+## Booking emails
+
+Every new booking can be emailed to the studio. The server sends it through an ordinary email account over SMTP, with no extra services. Add these lines to `.env` (or the host's environment settings) and restart:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=the.account@gmail.com
+SMTP_PASS=the-app-password
+NOTIFY_EMAIL=info@massagecalgary.ca
+SITE_URL=https://massagecalgary.ca
+```
+
+- `SITE_URL` (optional) adds a "See all bookings" link to the admin in each email.
+- `NOTIFY_EMAIL` is who gets the emails; separate several addresses with commas.
+- Gmail: turn on 2-Step Verification for the account, then create an app password at myaccount.google.com/apppasswords and use it as `SMTP_PASS` (the normal password won't work). Outlook/Hotmail: `smtp-mail.outlook.com`, port `587`. A mailbox from your web host (such as info@massagecalgary.ca): use the "outgoing server (SMTP)" settings your host gives you, usually port `465`.
+- Each email lists the client, phone, email, massage, date and time, price and notes. Replying to it writes to the client.
+- The admin's Appointments tab shows where emails go and has a **Send test email** button. If sending fails, it shows the mail server's reason; booking still works either way.
+- The password is only sent over an encrypted connection (port 465, or 587 with STARTTLS).
 
 ## Deploying
 
