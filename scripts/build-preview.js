@@ -415,6 +415,8 @@ const sitePageKeepScripts = (page) => inlineImages(page)
   .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
   .replace(/href="\/"/g, 'href="#"');
 admin = sitePageKeepScripts(admin)
+  // Help links in the Emails tab point to account pages; the offline preview shows them as plain text.
+  .replace(/<a href="https:\/\/[^"]+" target="_blank" rel="noopener">([^<]*)<\/a>/g, '<b>$1</b>')
   .replace(/<form class="logout" method="post" action="\/admin\/logout"><button([^>]*) type="submit">/, '<div class="logout"><button$1 type="button">')
   .replace('Log out</button></form>', 'Log out</button></div>')
   .replace('<main class="wrap admin">', `<main class="wrap admin">

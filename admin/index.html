@@ -72,7 +72,7 @@
     .email-box .msg { flex-basis: 100%; margin: 0; }
     /* Tabs (radio buttons, so they also work without JavaScript) */
     .tab-state { position: absolute; opacity: 0; pointer-events: none; }
-    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     main.admin .tabs label {
       display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 16px 18px; border-radius: 20px; cursor: pointer;
       font-size: 1.08rem; font-weight: 700; color: var(--heading); text-transform: none; letter-spacing: 0;
@@ -82,12 +82,18 @@
     .tabs label small { font-weight: 400; font-size: .82rem; color: var(--ink-soft); }
     .tabs .ico { font-size: 1.35rem; line-height: 1; margin-bottom: 6px; }
     main.admin .tabs label:hover { border-color: var(--gold); }
-    #tab-appts:checked ~ .tabs [for="tab-appts"], #tab-hours:checked ~ .tabs [for="tab-hours"], #tab-off:checked ~ .tabs [for="tab-off"] {
+    #tab-appts:checked ~ .tabs [for="tab-appts"], #tab-hours:checked ~ .tabs [for="tab-hours"], #tab-off:checked ~ .tabs [for="tab-off"], #tab-email:checked ~ .tabs [for="tab-email"] {
       border-color: rgba(201, 165, 92, .8); background: linear-gradient(160deg, rgba(226, 201, 146, .45), rgba(201, 165, 92, .16));
     }
-    #tab-appts:focus-visible ~ .tabs [for="tab-appts"], #tab-hours:focus-visible ~ .tabs [for="tab-hours"], #tab-off:focus-visible ~ .tabs [for="tab-off"] { outline: 3px solid var(--gold); outline-offset: 2px; }
+    #tab-appts:focus-visible ~ .tabs [for="tab-appts"], #tab-hours:focus-visible ~ .tabs [for="tab-hours"], #tab-off:focus-visible ~ .tabs [for="tab-off"], #tab-email:focus-visible ~ .tabs [for="tab-email"] { outline: 3px solid var(--gold); outline-offset: 2px; }
     .tab-pane { display: none; }
-    #tab-appts:checked ~ .p-appts, #tab-hours:checked ~ .p-hours, #tab-off:checked ~ .p-off { display: block; }
+    #tab-appts:checked ~ .p-appts, #tab-hours:checked ~ .p-hours, #tab-off:checked ~ .p-off, #tab-email:checked ~ .p-email { display: block; }
+    .email-state { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: .9rem; margin: 0 0 18px; background: var(--glass-lite); border: 1px solid var(--glass-edge); }
+    .email-state.on { color: #2f7d52; border-color: rgba(63, 154, 102, .45); }
+    .email-help { margin: -4px 0 18px; padding: 12px 16px; border-radius: 14px; background: var(--gold-soft); color: var(--ink); font-size: .92rem; }
+    .email-help ol { margin: .4em 0 0; padding-left: 1.3em; }
+    .email-help a { color: var(--heading); font-weight: 700; }
+    #email-advanced[hidden] { display: none; }
     .quick { display: flex; flex-wrap: wrap; gap: 10px; }
     main.admin .quick button { padding: 13px 22px; font-size: 1rem; background: linear-gradient(180deg, #e0c283 0%, #c9a55c 52%, #b48c45 100%); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 10px 24px -10px rgba(169,133,61,.75); }
     h3.minor { font-family: var(--sans); font-size: 1rem; margin: 24px 0 10px; }
@@ -193,10 +199,12 @@
     <input class="tab-state" type="radio" name="tab" id="tab-appts" checked>
     <input class="tab-state" type="radio" name="tab" id="tab-hours">
     <input class="tab-state" type="radio" name="tab" id="tab-off">
+    <input class="tab-state" type="radio" name="tab" id="tab-email">
     <nav class="tabs" aria-label="Admin sections">
       <label for="tab-appts"><span class="ico" aria-hidden="true">📅</span>Appointments<small>Who's coming</small></label>
       <label for="tab-hours"><span class="ico" aria-hidden="true">🕘</span>Hours<small>Your weekly schedule</small></label>
       <label for="tab-off"><span class="ico" aria-hidden="true">🌴</span>Time off<small>Holidays &amp; breaks</small></label>
+      <label for="tab-email"><span class="ico" aria-hidden="true">📧</span>Emails<small>New booking alerts</small></label>
     </nav>
 
     <section class="card tab-pane p-appts">
@@ -262,6 +270,50 @@
       </form>
       <p class="msg" id="block-msg"></p>
       <div class="table-wrap"><table id="blocks"></table></div>
+    </section>
+
+    <section class="card tab-pane p-email">
+      <h2>Booking emails</h2>
+      <p class="sub">Get an email every time someone books online. The website sends it from an email account you already have.</p>
+      <p class="email-state" id="email-state">Checking…</p>
+      <form id="email-form" novalidate>
+        <div class="rules">
+          <label>Send booking emails to
+            <input name="to" type="text" inputmode="email" autocomplete="email" placeholder="info@massagecalgary.ca">
+          </label>
+          <label>Your email provider
+            <select name="provider">
+              <option value="gmail">Gmail</option>
+              <option value="outlook">Outlook / Hotmail</option>
+              <option value="yahoo">Yahoo</option>
+              <option value="icloud">iCloud</option>
+              <option value="other">Other (e.g. your web host)</option>
+            </select>
+          </label>
+        </div>
+        <div class="email-help" id="email-help"></div>
+        <div class="rules">
+          <label>Send from (email account)
+            <input name="user" type="text" autocomplete="off" placeholder="you@gmail.com">
+          </label>
+          <label><span id="pass-label">App password</span>
+            <input name="pass" type="password" autocomplete="new-password" placeholder="">
+          </label>
+        </div>
+        <div class="rules" id="email-advanced" hidden>
+          <label>Mail server (SMTP)
+            <input name="host" type="text" autocomplete="off" placeholder="mail.massagecalgary.ca">
+          </label>
+          <label>Port
+            <select name="port"><option value="465">465 (SSL)</option><option value="587">587 (STARTTLS)</option></select>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" id="email-save">Save &amp; send test email</button>
+          <button type="button" class="ghost" id="email-off" hidden>Turn off</button>
+          <p class="msg" id="email-form-msg" role="status"></p>
+        </div>
+      </form>
     </section>
   </main>
 
@@ -410,13 +462,14 @@
     setRange(30);
 
     // Booking emails: say where they go, and let staff send a test.
-    api('/api/admin/email').then((e) => {
+    const refreshEmailBox = () => api('/api/admin/email').then((e) => {
       $('#email-box').hidden = false;
       $('#email-status').textContent = e.on
         ? `📧 New bookings are emailed to ${e.to.join(', ')}.`
-        : '📧 Booking emails are off. They can be turned on in the website’s .env file (see README.md, “Booking emails”).';
+        : '📧 Booking emails are off. Turn them on in the Emails tab.';
       $('#email-test').hidden = !e.on;
     }).catch(() => {});
+    refreshEmailBox();
     $('#email-test').addEventListener('click', async () => {
       const btn = $('#email-test'), msg = $('#email-msg');
       btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Sending…';
@@ -482,11 +535,73 @@
     });
     loadAvailability();
 
+    // ---------- Booking emails ----------
+    const PROVIDERS = {
+      gmail: { host: 'smtp.gmail.com', port: 465, pass: 'App password', placeholder: 'you@gmail.com',
+        help: '<b>Gmail needs an app password</b> (your normal password won’t work):<ol><li>Sign in to the Gmail account and turn on <a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" rel="noopener">2-Step Verification</a>.</li><li>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App passwords</a>, type “Website” and click Create.</li><li>Copy the 16-letter password into the box below.</li></ol>' },
+      outlook: { host: 'smtp-mail.outlook.com', port: 587, pass: 'Password', placeholder: 'you@outlook.com',
+        help: 'Use your Outlook / Hotmail address and password. If the account has two-step verification, create an <b>app password</b> in your Microsoft account’s security settings and use that.' },
+      yahoo: { host: 'smtp.mail.yahoo.com', port: 465, pass: 'App password', placeholder: 'you@yahoo.com',
+        help: '<b>Yahoo needs an app password:</b> in Yahoo Account security, choose “Generate app password”, then paste it below.' },
+      icloud: { host: 'smtp.mail.me.com', port: 587, pass: 'App-specific password', placeholder: 'you@icloud.com',
+        help: '<b>iCloud needs an app-specific password:</b> create one at account.apple.com under Sign-In and Security, then paste it below.' },
+      other: { host: '', port: 465, pass: 'Password', placeholder: 'info@massagecalgary.ca',
+        help: 'For an address on your own domain (like info@massagecalgary.ca), use the <b>outgoing mail (SMTP)</b> details your email or web host gives you: usually the full email address and its password, server <i>mail.yourdomain</i>, port 465.' },
+    };
+    const providerFor = (host) => Object.keys(PROVIDERS).find((k) => k !== 'other' && PROVIDERS[k].host === host) || 'other';
+    const ef = $('#email-form');
+    let emailSaved = null;
+    function showProvider() {
+      const pr = PROVIDERS[ef.provider.value];
+      $('#email-help').innerHTML = pr.help;
+      $('#pass-label').textContent = pr.pass;
+      ef.user.placeholder = pr.placeholder;
+      $('#email-advanced').hidden = ef.provider.value !== 'other';
+      if (ef.provider.value !== 'other') { ef.host.value = pr.host; ef.port.value = String(pr.port); }
+    }
+    function renderEmail(e) {
+      emailSaved = e;
+      const st = $('#email-state');
+      st.className = 'email-state' + (e.on ? ' on' : '');
+      st.textContent = e.on ? `✓ On: new bookings are emailed to ${e.to.join(', ')}` : 'Off: no booking emails yet';
+      $('#email-off').hidden = e.source !== 'admin';
+      ef.to.value = e.to.join(', ');
+      ef.user.value = e.user;
+      ef.provider.value = e.host ? providerFor(e.host) : 'gmail';
+      showProvider();
+      if (ef.provider.value === 'other') { ef.host.value = e.host; ef.port.value = String(e.port === 587 ? 587 : 465); }
+      ef.pass.value = '';
+      ef.pass.placeholder = e.hasPassword ? 'Saved (leave blank to keep it)' : '';
+    }
+    ef.provider.addEventListener('change', showProvider);
+    async function loadEmail() { try { renderEmail(await api('/api/admin/email')); } catch (err) { $('#email-state').textContent = err.message; } }
+    $('#email-save').addEventListener('click', async () => {
+      const msg = $('#email-form-msg'), btn = $('#email-save');
+      const say = (t, ok) => { msg.className = 'msg' + (ok === true ? ' ok' : ok === false ? ' err' : ''); msg.textContent = t; };
+      btn.disabled = true; say('Saving…');
+      try {
+        renderEmail(await api('/api/admin/email', { method: 'PUT', body: JSON.stringify({ to: ef.to.value, user: ef.user.value, pass: ef.pass.value, host: ef.host.value, port: Number(ef.port.value) }) }));
+        say('Saved. Sending a test email…');
+        try {
+          const r = await api('/api/admin/email/test', { method: 'POST' });
+          say(`Saved, and a test email was sent to ${r.to.join(', ')}. Check the inbox (and the spam folder).`, true);
+        } catch (err) { say(`Saved, but the test email didn’t go through. ${err.message}`, false); }
+        refreshEmailBox();
+      } catch (err) { say(err.message, false); }
+      btn.disabled = false;
+    });
+    $('#email-off').addEventListener('click', async () => {
+      if (!await askConfirm($('#email-form .actions'), 'Turn off booking emails?', 'New bookings will still show here, but no email will be sent.', 'Turn off', true)) return;
+      try { renderEmail(await api('/api/admin/email', { method: 'DELETE' })); $('#email-form-msg').className = 'msg'; $('#email-form-msg').textContent = 'Booking emails are off.'; refreshEmailBox(); }
+      catch (err) { $('#email-form-msg').className = 'msg err'; $('#email-form-msg').textContent = err.message; }
+    });
+    loadEmail();
+
     // ---------- Tabs and quick time off ----------
-    const tabFromHash = { '#hours': 'tab-hours', '#time-off': 'tab-off', '#appointments': 'tab-appts' }[location.hash];
+    const tabFromHash = { '#hours': 'tab-hours', '#time-off': 'tab-off', '#appointments': 'tab-appts', '#emails': 'tab-email' }[location.hash];
     if (tabFromHash) document.getElementById(tabFromHash).checked = true;
     document.querySelectorAll('.tab-state').forEach((r) => r.addEventListener('change', () => {
-      const hash = { 'tab-hours': '#hours', 'tab-off': '#time-off', 'tab-appts': '#appointments' }[r.id];
+      const hash = { 'tab-hours': '#hours', 'tab-off': '#time-off', 'tab-appts': '#appointments', 'tab-email': '#emails' }[r.id];
       try { history.replaceState(null, '', hash); } catch (err) { /* embedded preview */ }
     }));
     document.querySelectorAll('[data-day-off]').forEach((b) => b.addEventListener('click', async () => {

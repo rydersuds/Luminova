@@ -93,7 +93,8 @@ test('a new booking emails the studio', async () => {
 test('staff can check the email setup and send a test', async () => {
   assert.equal((await fetch(base + '/api/admin/email')).status, 401);
   assert.equal((await fetch(base + '/api/admin/email/test', { method: 'POST' })).status, 401);
-  assert.deepEqual(await (await fetch(base + '/api/admin/email', { headers: auth })).json(), { on: true, to: ['felix@example.com', 'front-desk@example.com'] });
+  const status = await (await fetch(base + '/api/admin/email', { headers: auth })).json();
+  assert.deepEqual([status.on, status.source, status.to, status.hasPassword, 'pass' in status], [true, 'env', ['felix@example.com', 'front-desk@example.com'], true, false]);
   const before = received.length;
   const res = await fetch(base + '/api/admin/email/test', { method: 'POST', headers: auth });
   assert.equal(res.status, 200);
@@ -106,4 +107,52 @@ test('client details cannot add email headers', () => {
   const msg = buildMessage({ from: 'Site <a@example.com>', to: ['b@example.com'], replyTo: 'Evil\r\nBcc: x@example.com <c@example.com>', subject: 'Hi\r\nBcc: y@example.com', text: 'x' });
   const headers = msg.split('\r\n\r\n')[0].split('\r\n');
   assert.ok(!headers.some((h) => /^Bcc:/i.test(h)), headers.join(' | '));
+});
+
+test('staff can set up booking emails in the admin', async () => {
+  const put = (body) => fetch(base + '/api/admin/email', { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal((await fetch(base + '/api/admin/email', { method: 'PUT', body: '{}' })).status, 401);
+  const port = fake.address().port;
+  const bad = await put({ to: 'not-an-email', user: '', pass: '', host: 'smtp gmail', port: 99 });
+  assert.equal(bad.status, 400);
+  assert.equal((await bad.json()).errors.length, 5);
+
+  const res = await put({ to: 'owner@example.com, ', user: 'site@example.com', pass: 'abcd efgh', host: '127.0.0.1', port: 2526 });
+  assert.equal(res.status, 400, 'only standard mail ports');
+  // The fake server listens on a random port; save a normal port, then point the saved setting at it.
+  const ok = await put({ to: 'owner@example.com', user: 'site@example.com', pass: 'abcd efgh', host: 'localhost', port: 587 });
+  assert.equal(ok.status, 200);
+  const shown = await ok.json();
+  assert.deepEqual(shown, { on: true, source: 'admin', to: ['owner@example.com'], host: 'localhost', port: 587, user: 'site@example.com', hasPassword: true });
+  assert.ok(!JSON.stringify(await (await fetch(base + '/api/admin/email', { headers: auth })).json()).includes('abcdefgh'), 'the password is never sent back');
+
+  // Leaving the password blank keeps the saved one (same account).
+  assert.equal((await put({ to: 'owner@example.com, second@example.com', user: 'site@example.com', pass: '', host: 'localhost', port: 587 })).status, 200);
+  // ...but not for a different account.
+  assert.equal((await put({ to: 'owner@example.com', user: 'other@example.com', pass: '', host: 'localhost', port: 587 })).status, 400);
+
+  // Use the fake server's real port for the rest of the test.
+  const { DatabaseSync } = require('node:sqlite');
+  const db = new DatabaseSync(path.join(dataDir, 'bookings.db'));
+  const saved = JSON.parse(db.prepare("SELECT value FROM settings WHERE key = 'email'").get().value);
+  assert.equal(saved.pass, 'abcdefgh', 'spaces removed, kept from before');
+  assert.equal(saved.siteUrl, 'https://massagecalgary.ca', 'a fixed SITE_URL wins over the address the admin used');
+  db.prepare("UPDATE settings SET value = ? WHERE key = 'email'").run(JSON.stringify({ ...saved, port }));
+  db.close();
+
+  const before = received.length;
+  const date = nextWeekday(4);
+  const { slots } = await (await fetch(`${base}/api/availability?service=relaxation&duration=60&date=${date}`)).json();
+  const r = await fetch(base + '/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service: 'relaxation', duration: 60, date, time: slots[0], name: 'Pat Doe', phone: '403 555 0123', email: 'pat@example.com' }) });
+  assert.equal(r.status, 201);
+  await waitForMail(before + 1);
+  const mail = received[before];
+  assert.deepEqual(mail.to, ['<owner@example.com>', '<second@example.com>'], 'uses the settings saved in the admin');
+  assert.deepEqual(mail.auth, ['', 'site@example.com', 'abcdefgh']);
+  assert.ok(decodeBody(mail.data).includes('https://massagecalgary.ca/admin'));
+
+  // Turning it off in the admin falls back to the environment's settings.
+  const off = await fetch(base + '/api/admin/email', { method: 'DELETE', headers: auth });
+  assert.equal((await off.json()).source, 'env');
 });

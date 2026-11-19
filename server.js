@@ -27,18 +27,18 @@ const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || '').trim();
 const NOTIFY_WEBHOOK_URL = process.env.NOTIFY_WEBHOOK_URL || '';
-// Email for new bookings: an SMTP account to send from, and who to tell.
-const EMAIL = {
+// Email for new bookings: an SMTP account to send from, and who to tell. Set in the admin's
+// Emails tab (saved in the database), or with SMTP_* and NOTIFY_EMAIL environment variables.
+const ENV_EMAIL = {
   host: (process.env.SMTP_HOST || '').trim(),
   port: Number(process.env.SMTP_PORT) || 465,
   user: (process.env.SMTP_USER || '').trim(),
   pass: (process.env.SMTP_PASS || '').replace(/\s+/g, ''), // app passwords are often copied with spaces
-  from: (process.env.SMTP_FROM || '').trim() || (process.env.SMTP_USER ? `Massage Fenix website <${process.env.SMTP_USER.trim()}>` : ''),
+  from: (process.env.SMTP_FROM || '').trim(),
   to: (process.env.NOTIFY_EMAIL || '').split(',').map((s) => s.trim()).filter(Boolean),
+  // The site's public address, for the admin link in emails. Set, never taken from a booking request.
+  siteUrl: (process.env.SITE_URL || '').trim().replace(/\/+$/, ''),
 };
-const EMAIL_ON = Boolean(EMAIL.host && EMAIL.from && EMAIL.to.length);
-// The site's public address, for the admin link in emails. Set, never taken from a request.
-const SITE_URL = (process.env.SITE_URL || '').trim().replace(/\/+$/, '');
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -378,7 +378,42 @@ function fmtTime12(hhmm) {
   const [h, m] = hhmm.split(':').map(Number);
   return `${(h % 12) || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 }
-function bookingEmail(b) {
+const EMAIL_RE = /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/;
+const SMTP_PORTS = [465, 587, 25, 2525];
+// The email settings in use: the admin's saved ones if any, otherwise the environment's.
+function emailSettings() {
+  const row = q.getSetting.get('email');
+  let saved = null;
+  if (row) { try { saved = JSON.parse(row.value); } catch { saved = null; } }
+  const e = saved ? { ...saved, source: 'admin' } : { ...ENV_EMAIL, source: ENV_EMAIL.host ? 'env' : 'none' };
+  e.from = e.from || (EMAIL_RE.test(e.user || '') ? `Massage Fenix website <${e.user}>` : (e.to && e.to[0]) || '');
+  e.on = Boolean(e.host && e.from && e.to && e.to.length);
+  return e;
+}
+function validateEmailSettings(b, current) {
+  const errors = [];
+  const to = String(b.to || '').split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+  if (!to.length) errors.push('Enter the email address that should get booking emails.');
+  else if (to.length > 5) errors.push('Use at most 5 addresses.');
+  else if (!to.every((x) => EMAIL_RE.test(x))) errors.push('One of the “send to” addresses doesn’t look right.');
+  const host = String(b.host || '').trim().toLowerCase();
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/.test(host) || host.length > 253) errors.push('Enter the mail server (for example smtp.gmail.com).');
+  const port = Number(b.port);
+  if (!SMTP_PORTS.includes(port)) errors.push('The port should be 465 or 587.');
+  const user = String(b.user || '').trim();
+  if (!user || user.length > 254 || /[\r\n]/.test(user)) errors.push('Enter the email account that sends the emails.');
+  let pass = String(b.pass || '').replace(/\s+/g, '');
+  // A blank password keeps the saved one, as long as it's the same account.
+  if (!pass && current && current.source === 'admin' && current.user === user && current.host === host) pass = current.pass;
+  if (!pass) errors.push('Enter the password (for Gmail, an app password).');
+  if (pass.length > 200) errors.push('That password is too long.');
+  return { errors, value: { host, port, user, pass, to } };
+}
+const publicEmailSettings = (e) => ({
+  on: e.on, source: e.source, to: e.to || [], host: e.host || '', port: e.port || 465, user: e.user || '', hasPassword: Boolean(e.pass),
+});
+
+function bookingEmail(b, siteUrl) {
   const day = fmtDateLong(b.date);
   const price = b.firstVisit ? `$${b.total} (first visit, ${b.discountPercent}% off $${b.price})` : `$${b.total}`;
   return {
@@ -394,14 +429,15 @@ function bookingEmail(b) {
       `Notes:     ${b.notes || '(none)'}`,
       `Booking #: ${b.ref}`, '',
       'Reply to this email to write to the client.',
-      SITE_URL ? `See all bookings: ${SITE_URL}/admin` : 'See all bookings: Staff login, at the bottom of your website.',
+      siteUrl ? `See all bookings: ${siteUrl}/admin` : 'See all bookings: Staff login, at the bottom of your website.',
     ].join('\n'),
   };
 }
 async function emailNotify(booking) {
-  if (!EMAIL_ON) return;
+  const e = emailSettings();
+  if (!e.on) return;
   try {
-    await sendMail({ ...EMAIL, replyTo: `${booking.name} <${booking.email}>`, ...bookingEmail(booking) });
+    await sendMail({ ...e, replyTo: `${booking.name} <${booking.email}>`, ...bookingEmail(booking, e.siteUrl) });
   } catch (err) {
     console.error('Booking email failed:', err.message);
   }
@@ -536,15 +572,28 @@ async function handle(req, res) {
     if (!requireAdmin(req, res)) return;
 
     if (p === '/api/admin/email' && req.method === 'GET') {
-      return send(res, 200, { on: EMAIL_ON, to: EMAIL.to });
+      return send(res, 200, publicEmailSettings(emailSettings()), { 'Cache-Control': 'no-store' });
+    }
+    if (p === '/api/admin/email' && req.method === 'PUT') {
+      const { errors, value } = validateEmailSettings(await readJson(req), emailSettings());
+      if (errors.length) return send(res, 400, { error: errors.join(' '), errors });
+      // The admin is signed in, so the address they're using is the site's own address.
+      value.siteUrl = ENV_EMAIL.siteUrl || `${isHttps(req) ? 'https' : 'http'}://${String(req.headers.host || '').replace(/[^\w.:-]/g, '')}`;
+      q.setSetting.run('email', JSON.stringify(value));
+      return send(res, 200, publicEmailSettings(emailSettings()));
+    }
+    if (p === '/api/admin/email' && req.method === 'DELETE') {
+      q.deleteSetting.run('email');
+      return send(res, 200, publicEmailSettings(emailSettings()));
     }
     if (p === '/api/admin/email/test' && req.method === 'POST') {
-      if (!EMAIL_ON) return send(res, 400, { error: 'Email isn’t set up yet. Add the SMTP settings and NOTIFY_EMAIL to the .env file, then restart.' });
-      if (Date.now() - lastTestEmail < 10000) return send(res, 429, { error: 'Please wait a few seconds before sending another test.' });
+      const e = emailSettings();
+      if (!e.on) return send(res, 400, { error: 'Booking emails aren’t set up yet. Fill in the Emails tab and click Save.' });
+      if (Date.now() - lastTestEmail < 5000) return send(res, 429, { error: 'Please wait a few seconds before sending another test.' });
       lastTestEmail = Date.now();
       try {
-        await sendMail({ ...EMAIL, subject: 'Test: booking emails are working', text: 'This is a test from your Massage Fenix website.\n\nNew bookings will be emailed to this address.' });
-        return send(res, 200, { ok: true, to: EMAIL.to });
+        await sendMail({ ...e, subject: 'Test: booking emails are working', text: 'This is a test from your Massage Fenix website.\n\nNew bookings will be emailed to this address.' });
+        return send(res, 200, { ok: true, to: e.to });
       } catch (err) {
         return send(res, 502, { error: `The test email couldn’t be sent. ${err.message}` });
       }
@@ -629,7 +678,8 @@ const server = http.createServer((req, res) => {
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`Massage Fenix running on http://localhost:${PORT}`);
-    console.log(EMAIL_ON ? `Booking emails go to ${EMAIL.to.join(', ')}` : 'Booking emails are off (see "Booking emails" in README.md)');
+    const e = emailSettings();
+    console.log(e.on ? `Booking emails go to ${e.to.join(', ')}` : 'Booking emails are off (set them up in the admin’s Emails tab)');
     if (!ADMIN_PASSWORD) console.log('Admin dashboard disabled: set ADMIN_PASSWORD to enable /admin');
   });
 }

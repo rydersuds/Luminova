@@ -180,7 +180,18 @@
         return json(200, Object.assign(availability(), { saved: true }));
       }
     }
-    if (p === '/api/admin/email' && method === 'GET') return json(200, { on: true, to: ['info@massagecalgary.ca'] });
+    if (p === '/api/admin/email') {
+      var em = d.email || { on: false, source: 'none', to: [], host: '', port: 465, user: '', hasPassword: false };
+      if (method === 'GET') return json(200, em);
+      if (method === 'DELETE') { d.email = null; save(); return json(200, { on: false, source: 'none', to: [], host: '', port: 465, user: '', hasPassword: false }); }
+      if (method === 'PUT') {
+        var to = String(body.to || '').split(/[,;\s]+/).filter(Boolean);
+        if (!to.length || !String(body.user || '').trim() || !String(body.host || '').trim() || (!body.pass && !em.hasPassword)) return json(400, { error: 'Fill in who gets the emails, the account that sends them and its password.' });
+        d.email = { on: true, source: 'admin', to: to, host: String(body.host).trim(), port: +body.port || 465, user: String(body.user).trim(), hasPassword: true };
+        save();
+        return json(200, d.email);
+      }
+    }
     if (p === '/api/admin/email/test' && method === 'POST') return json(400, { error: 'This is a preview, so no email is sent. On the live site this sends a real test email.' });
     return json(404, { error: 'Not found' });
   }
