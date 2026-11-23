@@ -284,7 +284,8 @@
           <label>Your email provider
             <select name="provider">
               <option value="gmail">Gmail</option>
-              <option value="outlook">Outlook / Hotmail</option>
+              <option value="outlook">Outlook / Hotmail (Microsoft)</option>
+              <option value="m365">Microsoft 365 (work email on your own domain)</option>
               <option value="yahoo">Yahoo</option>
               <option value="icloud">iCloud</option>
               <option value="other">Other (e.g. your web host)</option>
@@ -383,7 +384,7 @@
       const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
       if (res.status === 401) { location.href = '/admin/login'; throw new Error('Please sign in again.'); }
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Request failed');
+      if (!res.ok) throw new Error(body.error || (res.status === 504 || res.status === 524 ? 'The server took too long to answer (the website host timed out).' : `Request failed (error ${res.status}).`));
       return body;
     }
 
@@ -540,7 +541,9 @@
       gmail: { host: 'smtp.gmail.com', port: 465, pass: 'App password', placeholder: 'you@gmail.com',
         help: '<b>Gmail needs an app password</b> (your normal password won’t work):<ol><li>Sign in to the Gmail account and turn on <a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" rel="noopener">2-Step Verification</a>.</li><li>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App passwords</a>, type “Website” and click Create.</li><li>Copy the 16-letter password into the box below.</li></ol>' },
       outlook: { host: 'smtp-mail.outlook.com', port: 587, pass: 'Password', placeholder: 'you@outlook.com',
-        help: 'Use your Outlook / Hotmail address and password. If the account has two-step verification, create an <b>app password</b> in your Microsoft account’s security settings and use that.' },
+        help: 'Use your Outlook / Hotmail address and password (or an <b>app password</b> if the account has two-step verification).<br><b>Heads up:</b> Microsoft is switching off password sign-in for sending from websites, so this may be refused. If the test fails, the simple fix is to <b>send from a free Gmail account</b> (choose Gmail above): the booking emails can still go <i>to</i> your Microsoft address.' },
+      m365: { host: 'smtp.office365.com', port: 587, pass: 'Password', placeholder: 'info@massagecalgary.ca',
+        help: 'Use the full email address and its password. Your Microsoft 365 admin may need to turn on <b>Authenticated SMTP</b> for this mailbox.<br><b>Heads up:</b> Microsoft is switching off password sign-in for sending from websites, so this may be refused. If the test fails, the simple fix is to <b>send from a free Gmail account</b> (choose Gmail above): the booking emails can still go <i>to</i> your Microsoft address.' },
       yahoo: { host: 'smtp.mail.yahoo.com', port: 465, pass: 'App password', placeholder: 'you@yahoo.com',
         help: '<b>Yahoo needs an app password:</b> in Yahoo Account security, choose “Generate app password”, then paste it below.' },
       icloud: { host: 'smtp.mail.me.com', port: 587, pass: 'App-specific password', placeholder: 'you@icloud.com',

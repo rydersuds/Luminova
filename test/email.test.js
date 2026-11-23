@@ -156,3 +156,33 @@ test('staff can set up booking emails in the admin', async () => {
   const off = await fetch(base + '/api/admin/email', { method: 'DELETE', headers: auth });
   assert.equal((await off.json()).source, 'env');
 });
+
+test('a failed test email says why, without a 5xx the host could hide', async () => {
+  const put = (body) => fetch(base + '/api/admin/email', { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const testEmail = async () => {
+    await new Promise((r) => setTimeout(r, 5100)); // tests are rate limited
+    return fetch(base + '/api/admin/email/test', { method: 'POST', headers: auth });
+  };
+  // Nothing listens on either mail port here: like a host that blocks outgoing email.
+  assert.equal((await put({ to: 'owner@example.com', user: 'site@example.com', pass: 'pw', host: 'localhost', port: 465 })).status, 200);
+  const blocked = await testEmail();
+  assert.equal(blocked.status, 422);
+  assert.match((await blocked.json()).error, /Couldn’t connect to localhost \(tried ports 465 and 587\)\. Your website’s hosting is probably blocking outgoing email/);
+
+  // A server that refuses the login.
+  const refuse = net.createServer((sock) => {
+    sock.write('220 hi\r\n');
+    sock.on('data', (c) => { const l = String(c); sock.write(/^EHLO/.test(l) ? '250-hi\r\n250 AUTH PLAIN\r\n' : /^AUTH/.test(l) ? '535 5.7.8 Username and Password not accepted\r\n' : '250 ok\r\n'); });
+  });
+  await new Promise((r) => refuse.listen(0, '127.0.0.1', r));
+  const { DatabaseSync } = require('node:sqlite');
+  const db = new DatabaseSync(path.join(dataDir, 'bookings.db'));
+  const saved = JSON.parse(db.prepare("SELECT value FROM settings WHERE key = 'email'").get().value);
+  db.prepare("UPDATE settings SET value = ? WHERE key = 'email'").run(JSON.stringify({ ...saved, port: refuse.address().port }));
+  db.close();
+  const denied = await testEmail();
+  assert.equal(denied.status, 422);
+  assert.match((await denied.json()).error, /didn’t accept the login\. Check the email address and password\. \(Logging in to the mail server failed: 535/);
+  refuse.close();
+  await fetch(base + '/api/admin/email', { method: 'DELETE', headers: auth });
+});

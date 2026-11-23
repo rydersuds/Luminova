@@ -413,6 +413,49 @@ const publicEmailSettings = (e) => ({
   on: e.on, source: e.source, to: e.to || [], host: e.host || '', port: e.port || 465, user: e.user || '', hasPassword: Boolean(e.pass),
 });
 
+// Send with the saved settings. If the mail server can't even be reached on its port (hosts
+// often block one of the two), try the other standard port and remember the one that works.
+async function sendEmail(e, message) {
+  try {
+    return await sendMail({ ...e, ...message, timeoutMs: 12000 });
+  } catch (err) {
+    const other = { 465: 587, 587: 465 }[e.port];
+    if (err.stage !== 'connect' || !other) throw err;
+    try {
+      await sendMail({ ...e, ...message, port: other, timeoutMs: 12000 });
+    } catch (err2) {
+      if (err2.stage === 'connect') { err2.triedPorts = [e.port, other]; throw err2; }
+      throw err2;
+    }
+    if (e.source === 'admin') {
+      const { source, on, from, ...saved } = e;
+      q.setSetting.run('email', JSON.stringify({ ...saved, port: other }));
+    }
+  }
+}
+// Turn mail errors into something the studio can act on.
+function explainEmailError(err, e) {
+  const msg = String(err && err.message || err);
+  const gmail = /gmail\.com$/.test(e.host);
+  const microsoft = /(outlook|office365|hotmail|live)\.com$/.test(e.host);
+  if (err && err.stage === 'connect') {
+    if (/ENOTFOUND|EAI_AGAIN/.test(msg)) return `The mail server “${e.host}” wasn’t found. Check the server name.`;
+    if (/CERT|certificate|altname|self.signed/i.test(msg)) return `The mail server’s security certificate doesn’t match “${e.host}”. Use the exact server name your email provider gives you.`;
+    const ports = err.triedPorts ? `ports ${err.triedPorts.join(' and ')}` : `port ${e.port}`;
+    return `Couldn’t connect to ${e.host} (tried ${ports}). Your website’s hosting is probably blocking outgoing email: some plans do, for example Render’s free plan and Railway’s free and trial plans. A paid plan or a different host fixes it. (${msg})`;
+  }
+  if (/^Logging in/.test(msg)) {
+    if (microsoft) {
+      return `Microsoft didn’t accept the login. Microsoft is switching off password sign-in for sending from websites, so even the right password can be refused. Easiest fix: send from a free Gmail account instead (choose Gmail in the Emails tab); booking emails can still go to your Microsoft address. (${msg})`;
+    }
+    return gmail
+      ? `Gmail didn’t accept the login. Check the Gmail address, and use a 16-letter app password, not the normal password (it needs 2-Step Verification turned on). (${msg})`
+      : `The mail server didn’t accept the login. Check the email address and password. (${msg})`;
+  }
+  if (/^Sender address/.test(msg)) return `The mail server won’t send from that address. Use the same address you log in with. (${msg})`;
+  return msg;
+}
+
 function bookingEmail(b, siteUrl) {
   const day = fmtDateLong(b.date);
   const price = b.firstVisit ? `$${b.total} (first visit, ${b.discountPercent}% off $${b.price})` : `$${b.total}`;
@@ -437,9 +480,9 @@ async function emailNotify(booking) {
   const e = emailSettings();
   if (!e.on) return;
   try {
-    await sendMail({ ...e, replyTo: `${booking.name} <${booking.email}>`, ...bookingEmail(booking, e.siteUrl) });
+    await sendEmail(e, { replyTo: `${booking.name} <${booking.email}>`, ...bookingEmail(booking, e.siteUrl) });
   } catch (err) {
-    console.error('Booking email failed:', err.message);
+    console.error('Booking email failed:', explainEmailError(err, e));
   }
 }
 
@@ -592,10 +635,12 @@ async function handle(req, res) {
       if (Date.now() - lastTestEmail < 5000) return send(res, 429, { error: 'Please wait a few seconds before sending another test.' });
       lastTestEmail = Date.now();
       try {
-        await sendMail({ ...e, subject: 'Test: booking emails are working', text: 'This is a test from your Massage Fenix website.\n\nNew bookings will be emailed to this address.' });
-        return send(res, 200, { ok: true, to: e.to });
+        await sendEmail(e, { subject: 'Test: booking emails are working', text: 'This is a test from your Massage Fenix website.\n\nNew bookings will be emailed to this address.' });
+        return send(res, 200, { ok: true, to: e.to, port: emailSettings().port });
       } catch (err) {
-        return send(res, 502, { error: `The test email couldn’t be sent. ${err.message}` });
+        console.error('Test email failed:', err.message);
+        // 422, not 5xx: some hosts replace 5xx responses with their own page, hiding the reason.
+        return send(res, 422, { error: explainEmailError(err, e) });
       }
     }
     let m;

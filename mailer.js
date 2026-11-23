@@ -96,7 +96,9 @@ async function sendMail(opts) {
   const cmd = (line, codes, what) => { socket.write(line + '\r\n'); return expect(codes, what || line.split(' ')[0]); };
 
   try {
-    await expect([220], 'Connecting to the mail server');
+    // Mark failures before the server's greeting, so callers can tell "couldn't connect"
+    // (often a blocked port) from "connected, but something was refused".
+    await expect([220], 'Connecting to the mail server').catch((err) => { err.stage = 'connect'; throw err; });
     const helo = os.hostname().replace(/[^\w.-]/g, '') || 'localhost';
     let ehlo = await cmd(`EHLO ${helo}`, [250]);
     if (!encrypted && /STARTTLS/i.test(ehlo.text)) {
