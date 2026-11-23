@@ -39,8 +39,27 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fenix-email-test-'));
 let server, base;
 const auth = { Authorization: 'Basic ' + Buffer.from('admin:secret').toString('base64') };
 
+// A fake Brevo API: records requests; the API key picks the reply.
+const http = require('node:http');
+const brevoCalls = [];
+const brevo = http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => { body += c; });
+  req.on('end', () => {
+    const key = req.headers['api-key'];
+    brevoCalls.push({ key, body: JSON.parse(body) });
+    const reply = (status, obj) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
+    if (key === 'xkeysib-good-0123456789abcdef') return reply(201, { messageId: '<1@brevo>' });
+    if (key === 'xkeysib-ip-0123456789abcdefgh') return reply(401, { code: 'unauthorized', message: 'We have detected you are using an unrecognised IP address 1.2.3.4' });
+    if (key === 'xkeysib-sender-0123456789abcd') return reply(400, { code: 'invalid_parameter', message: 'Sending has been rejected because the sender you used x@example.com is not valid. Validate your sender or authenticate your domain' });
+    return reply(401, { code: 'unauthorized', message: 'Key not found' });
+  });
+});
+
 before(async () => {
   await new Promise((r) => fake.listen(0, '127.0.0.1', r));
+  await new Promise((r) => brevo.listen(0, '127.0.0.1', r));
+  process.env.BREVO_API_URL = `http://127.0.0.1:${brevo.address().port}/v3/smtp/email`;
   Object.assign(process.env, {
     DATA_DIR: dataDir, ADMIN_PASSWORD: 'secret', NOTIFY_WEBHOOK_URL: '',
     SMTP_HOST: '127.0.0.1', SMTP_PORT: String(fake.address().port),
@@ -51,7 +70,7 @@ before(async () => {
   await new Promise((r) => server.listen(0, r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
-after(() => { server.close(); fake.close(); fs.rmSync(dataDir, { recursive: true, force: true }); });
+after(() => { server.close(); fake.close(); brevo.close(); fs.rmSync(dataDir, { recursive: true, force: true }); });
 
 const decodeBody = (data) => Buffer.from(data.split('\r\n\r\n').slice(1).join('').replace(/\s+/g, ''), 'base64').toString('utf8');
 const waitForMail = async (n) => { for (let i = 0; i < 100 && received.length < n; i++) await new Promise((r) => setTimeout(r, 20)); };
@@ -123,7 +142,7 @@ test('staff can set up booking emails in the admin', async () => {
   const ok = await put({ to: 'owner@example.com', user: 'site@example.com', pass: 'abcd efgh', host: 'localhost', port: 587 });
   assert.equal(ok.status, 200);
   const shown = await ok.json();
-  assert.deepEqual(shown, { on: true, source: 'admin', to: ['owner@example.com'], host: 'localhost', port: 587, user: 'site@example.com', hasPassword: true });
+  assert.deepEqual(shown, { on: true, source: 'admin', service: 'smtp', to: ['owner@example.com'], host: 'localhost', port: 587, user: 'site@example.com', hasPassword: true });
   assert.ok(!JSON.stringify(await (await fetch(base + '/api/admin/email', { headers: auth })).json()).includes('abcdefgh'), 'the password is never sent back');
 
   // Leaving the password blank keeps the saved one (same account).
@@ -184,5 +203,60 @@ test('a failed test email says why, without a 5xx the host could hide', async ()
   assert.equal(denied.status, 422);
   assert.match((await denied.json()).error, /didn’t accept the login\. Check the email address and password\. \(Logging in to the mail server failed: 535/);
   refuse.close();
+  await fetch(base + '/api/admin/email', { method: 'DELETE', headers: auth });
+});
+
+test('booking emails can go through Brevo (works where hosting blocks email ports)', async () => {
+  const put = (body) => fetch(base + '/api/admin/email', { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const testEmail = async () => {
+    await new Promise((r) => setTimeout(r, 5100));
+    return fetch(base + '/api/admin/email/test', { method: 'POST', headers: auth });
+  };
+  const brevoSettings = (key) => ({ service: 'brevo', to: 'felix@outlook.com', user: 'felix@outlook.com', pass: key });
+
+  const smtpKey = await put(brevoSettings('xsmtpsib-0123456789abcdef0123'));
+  assert.equal(smtpKey.status, 400);
+  assert.match((await smtpKey.json()).error, /SMTP key\. Create an API key/);
+
+  const ok = await put(brevoSettings('xkeysib-good-0123456789abcdef'));
+  assert.equal(ok.status, 200);
+  const shown = await ok.json();
+  assert.equal(shown.service, 'brevo');
+  assert.ok(!JSON.stringify(shown).includes('xkeysib'), 'the key is never sent back');
+  // Saving again with the key box left blank keeps the key.
+  assert.equal((await put(brevoSettings(''))).status, 200);
+
+  const sent = await testEmail();
+  assert.equal(sent.status, 200);
+  const call = brevoCalls.at(-1);
+  assert.equal(call.key, 'xkeysib-good-0123456789abcdef');
+  assert.deepEqual(call.body.sender, { name: 'Massage Fenix website', email: 'felix@outlook.com' });
+  assert.deepEqual(call.body.to, [{ email: 'felix@outlook.com' }]);
+  assert.match(call.body.subject, /^Test: booking emails are working$/);
+
+  // A booking goes through Brevo, with replies going to the client.
+  const date = nextWeekday(5);
+  const { slots } = await (await fetch(`${base}/api/availability?service=cupping&duration=60&date=${date}`)).json();
+  const r = await fetch(base + '/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service: 'cupping', duration: 60, date, time: slots[0], name: 'Lee Brown', phone: '403 555 0177', email: 'lee@example.com' }) });
+  assert.equal(r.status, 201);
+  for (let i = 0; i < 50 && brevoCalls.at(-1) === call; i++) await new Promise((x) => setTimeout(x, 20));
+  const b = brevoCalls.at(-1).body;
+  assert.deepEqual(b.replyTo, { name: 'Lee Brown', email: 'lee@example.com' });
+  assert.match(b.subject, /^New booking: Cupping \(vacuum\), .+ \(Lee Brown\)$/);
+  assert.match(b.textContent, /Lee Brown[\s\S]*403 555 0177[\s\S]*Cupping \(vacuum\), 60 min/);
+
+  // Brevo's common problems come back as clear steps.
+  const cases = [
+    ['xkeysib-ip-0123456789abcdefgh', /Authorised IPs/],
+    ['xkeysib-sender-0123456789abcd', /Senders, Domains & Dedicated IPs/],
+    ['xkeysib-wrong-0123456789abcde', /didn’t accept the API key/],
+  ];
+  for (const [key, re] of cases) {
+    assert.equal((await put(brevoSettings(key))).status, 200);
+    const res = await testEmail();
+    assert.equal(res.status, 422);
+    assert.match((await res.json()).error, re);
+  }
   await fetch(base + '/api/admin/email', { method: 'DELETE', headers: auth });
 });

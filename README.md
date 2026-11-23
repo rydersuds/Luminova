@@ -55,6 +55,8 @@ Every new booking can be emailed to the studio. The server sends it through an o
 
 **Easiest: the admin's Emails tab.** Log in, open **Emails**, enter who should get the emails, pick the provider (Gmail, Outlook, Yahoo, iCloud or Other), and enter the sending account and its password, then click **Save & send test email**. It's saved in the database (so it needs the same persistent disk as bookings), takes effect at once without a restart, and the password is never shown again. **Turn off** removes it.
 
+**If the host blocks email ports** (many free hosting plans do: the test says it couldn't connect on 465 or 587), choose **Brevo** in the Emails tab. Brevo is an email service with a free plan that sends over HTTPS with an API key, so blocked ports don't matter, and it also avoids Microsoft's switch-off of password sign-in. Verify the sender address in Brevo, create an API key (it starts with `xkeysib-`), and turn off Brevo's blocking of unknown IP addresses (cloud hosts' addresses change); the tab shows these steps.
+
 **Or with environment variables** (used when nothing is saved in the Emails tab). Add these lines to `.env` (or the host's environment settings) and restart:
 
 ```

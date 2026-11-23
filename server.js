@@ -396,6 +396,17 @@ function validateEmailSettings(b, current) {
   if (!to.length) errors.push('Enter the email address that should get booking emails.');
   else if (to.length > 5) errors.push('Use at most 5 addresses.');
   else if (!to.every((x) => EMAIL_RE.test(x))) errors.push('One of the “send to” addresses doesn’t look right.');
+  if (b.service === 'brevo') {
+    // Brevo sends over HTTPS with an API key, so it works even where hosting blocks email ports.
+    const user = String(b.user || '').trim();
+    if (!EMAIL_RE.test(user)) errors.push('Enter the sender email you verified in Brevo.');
+    let key = String(b.pass || '').trim();
+    if (!key && current && current.source === 'admin' && current.service === 'brevo') key = current.pass;
+    if (!key) errors.push('Paste your Brevo API key.');
+    else if (/^xsmtpsib-/.test(key)) errors.push('That’s Brevo’s SMTP key. Create an API key instead (it starts with xkeysib-).');
+    else if (!/^[\w-]{20,200}$/.test(key)) errors.push('That doesn’t look like a Brevo API key (it starts with xkeysib-).');
+    return { errors, value: { service: 'brevo', host: 'api.brevo.com', port: 443, user, pass: key, to } };
+  }
   const host = String(b.host || '').trim().toLowerCase();
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/.test(host) || host.length > 253) errors.push('Enter the mail server (for example smtp.gmail.com).');
   const port = Number(b.port);
@@ -410,12 +421,39 @@ function validateEmailSettings(b, current) {
   return { errors, value: { host, port, user, pass, to } };
 }
 const publicEmailSettings = (e) => ({
-  on: e.on, source: e.source, to: e.to || [], host: e.host || '', port: e.port || 465, user: e.user || '', hasPassword: Boolean(e.pass),
+  on: e.on, source: e.source, service: e.service || 'smtp', to: e.to || [], host: e.host || '', port: e.port || 465, user: e.user || '', hasPassword: Boolean(e.pass),
 });
+
+// Brevo's transactional email API (https://developers.brevo.com/reference/sendtransacemail).
+const BREVO_URL = process.env.BREVO_API_URL || 'https://api.brevo.com/v3/smtp/email';
+async function sendBrevo(e, { subject, text, replyTo }) {
+  const addr = (s) => { const m = String(s).match(/^\s*(.*?)\s*<([^<>]+)>\s*$/); return m ? { name: m[1] || undefined, email: m[2] } : { email: String(s).trim() }; };
+  let res;
+  try {
+    res = await fetch(BREVO_URL, {
+      method: 'POST',
+      headers: { 'api-key': e.pass, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { name: 'Massage Fenix website', email: e.user },
+        to: e.to.map((email) => ({ email })),
+        ...(replyTo ? { replyTo: addr(replyTo) } : {}),
+        subject,
+        textContent: text,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    throw Object.assign(new Error(`Couldn’t reach Brevo: ${err.message}`), { brevo: 'network' });
+  }
+  if (res.ok) return;
+  const body = await res.json().catch(() => ({}));
+  throw Object.assign(new Error(`Brevo said: ${body.message || res.statusText} (${res.status})`), { brevo: res.status, brevoCode: body.code || '' });
+}
 
 // Send with the saved settings. If the mail server can't even be reached on its port (hosts
 // often block one of the two), try the other standard port and remember the one that works.
 async function sendEmail(e, message) {
+  if (e.service === 'brevo') return sendBrevo(e, message);
   try {
     return await sendMail({ ...e, ...message, timeoutMs: 12000 });
   } catch (err) {
@@ -435,7 +473,15 @@ async function sendEmail(e, message) {
 }
 // Turn mail errors into something the studio can act on.
 function explainEmailError(err, e) {
-  const msg = String(err && err.message || err);
+  const msg = String(err && err.message || err) + (err && err.errors ? ` ${[...new Set(err.errors.map((x) => x.code || x.message))].join(', ')}` : '');
+  if (err && err.brevo) {
+    if (err.brevo === 'network') return `${msg}. Please try again in a minute.`;
+    if (/unrecogni[sz]ed IP/i.test(msg)) return `Brevo blocked the website because it doesn’t recognise its IP address. In Brevo, open your name (top right) → Security → Authorised IPs and turn off “blocking of unknown IP addresses”, then save here again. (${msg})`;
+    if (err.brevo === 401) return `Brevo didn’t accept the API key. In Brevo, go to your name (top right) → SMTP & API → API Keys, create a new key, and paste it here. (${msg})`;
+    if (/sender/i.test(msg)) return `Brevo won’t send from ${e.user} yet. In Brevo, go to your name (top right) → Senders, Domains & Dedicated IPs → Senders, add ${e.user} and click the link in the email Brevo sends you. (${msg})`;
+    if (/not.*activ|suspend|permission_denied/i.test(msg)) return `Brevo hasn’t activated sending for this account yet. Check your email from Brevo, or contact Brevo support to activate it. (${msg})`;
+    return msg;
+  }
   const gmail = /gmail\.com$/.test(e.host);
   const microsoft = /(outlook|office365|hotmail|live)\.com$/.test(e.host);
   if (err && err.stage === 'connect') {
