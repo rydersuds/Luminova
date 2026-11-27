@@ -31,8 +31,7 @@
     'About': 'О нас',
     'Book': 'Запись',
     'Contact': 'Контакты',
-    'Dark mode': 'Тёмная тема',
-    'Switch between light and dark mode': 'Переключить светлую и тёмную тему',
+    'English': 'English',
     'Call to book': 'Звоните для записи',
     'Book now': 'Записаться',
     'Open menu': 'Открыть меню',
@@ -544,6 +543,11 @@
     document.documentElement.classList.remove('i18n-pending');
     var box = document.getElementById('theme-toggle');
     if (box) box.addEventListener('change', function () { setLang(themeLang()); });
+    // The switch reads "Русский | English": tapping the language already showing does nothing.
+    document.addEventListener('click', function (e) {
+      var opt = e.target.closest && e.target.closest('.lang-opt');
+      if (opt && opt.classList.contains(lang === 'ru' ? 'lang-ru' : 'lang-en')) e.preventDefault();
+    });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

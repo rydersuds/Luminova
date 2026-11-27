@@ -24,7 +24,7 @@ ADMIN_PASSWORD=choose-a-strong-password npm start
 
 ## Languages: light mode is Russian, dark mode is English
 
-The sun/moon switch also switches language: **dark mode = English, light mode = Russian**. Every first-time visitor starts in dark mode (English), whatever their device's own light/dark setting; the choice is remembered in that browser. It covers the website, the booking panel, the staff login and the admin.
+The header switch reads **Русский | English**: choosing a language also sets the colours (**English = dark mode, Русский = light mode**). Every first-time visitor starts in dark mode (English), whatever their device's own light/dark setting; the choice is remembered in that browser. It covers the website, the booking panel, the staff login and the admin.
 
 The pages are written in English. `public/i18n.js` holds the Russian for every piece of text (the `RU` list, keyed by the English) plus patterns for text with names, dates, times and prices in it, and swaps it in when light mode is on; switching back restores the English. In Russian, dates use Russian month names and times use the 24-hour clock. **When you change any English wording on the site, add or update its Russian in `public/i18n.js`**, otherwise that piece shows in English in light mode. Booking emails to the studio stay in English. Russian letters use self-hosted Cyrillic versions of Playfair Display and of Carlito (Lato with Cyrillic).
 
