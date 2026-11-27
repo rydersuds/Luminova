@@ -7,10 +7,11 @@
   <title>Staff login — Massage Fenix</title>
   <meta name="theme-color" content="#1b2a45">
   <script>
-    try {
-      var t = localStorage.getItem('theme');
-      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark';
-    } catch (e) { /* storage unavailable */ }
+    // Dark mode (English) unless light mode (Russian) was chosen; hidden until translated.
+    var t = null;
+    try { t = localStorage.getItem('theme'); } catch (e) { /* storage unavailable */ }
+    if (t !== 'light') document.documentElement.dataset.theme = 'dark';
+    else { document.documentElement.classList.add('i18n-pending'); setTimeout(function () { document.documentElement.classList.remove('i18n-pending'); }, 2500); }
   </script>
   <link rel="icon" type="image/png" href="/images/logo-mark-64.png">
   <link rel="apple-touch-icon" href="/images/logo-mark-180.png">
@@ -132,5 +133,6 @@
       });
     })();
   </script>
+  <script src="/i18n.js"></script>
 </body>
 </html>

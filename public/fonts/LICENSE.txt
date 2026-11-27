@@ -1,2 +1,2 @@
-Lato (c) Lukasz Dziedzic and Playfair Display (c) Claus Eggers Sorensen, both under the SIL Open Font License 1.1: https://openfontlicense.org
-Latin subsets downloaded from Google Fonts and served locally so the site loads no third-party fonts.
+Lato (c) Lukasz Dziedzic, Playfair Display (c) Claus Eggers Sorensen and Carlito (c) tyPoland Lukasz Dziedzic (a Lato derivative with Cyrillic), all under the SIL Open Font License 1.1: https://openfontlicense.org
+Latin and Cyrillic subsets downloaded from Google Fonts and served locally so the site loads no third-party fonts. Carlito is used for Cyrillic text under the Lato name.

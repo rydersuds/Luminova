@@ -500,7 +500,9 @@ address { font-style: normal; font-size: 1.15rem; margin-bottom: 1em; }
 .hours th, .hours td { text-align: left; padding: 12px 0; border-bottom: 1px solid var(--line); font-weight: 400; }
 .hours td { text-align: right; }
 .hours tr.is-today th, .hours tr.is-today td { color: var(--heading); font-weight: 700; }
+html.i18n-pending body { opacity: 0; }
 .hours tr.is-today th::after { content: "Today"; margin-left: .6em; font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; background: var(--gold); color: #fff; padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
+:lang(ru) .hours tr.is-today th::after { content: "Сегодня"; }
 .fine { font-size: .85rem; color: var(--ink-soft); }
 .map { border-radius: var(--radius-lg); overflow: hidden; min-height: 380px; box-shadow: var(--shadow); background: var(--cream); }
 .map iframe { width: 100%; height: 100%; min-height: 380px; border: 0; }

@@ -6,10 +6,11 @@
   <meta name="robots" content="noindex">
   <title>Admin — Massage Fenix</title>
   <script>
-    try {
-      var t = localStorage.getItem('theme');
-      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark';
-    } catch (e) { /* storage unavailable */ }
+    // Dark mode (English) unless light mode (Russian) was chosen; hidden until translated.
+    var t = null;
+    try { t = localStorage.getItem('theme'); } catch (e) { /* storage unavailable */ }
+    if (t !== 'light') document.documentElement.dataset.theme = 'dark';
+    else { document.documentElement.classList.add('i18n-pending'); setTimeout(function () { document.documentElement.classList.remove('i18n-pending'); }, 2500); }
   </script>
   <link rel="icon" type="image/png" href="/images/logo-mark-64.png">
   <link rel="apple-touch-icon" href="/images/logo-mark-180.png">
@@ -293,7 +294,7 @@
             </select>
           </label>
         </div>
-        <div class="email-help" id="email-help"></div>
+        <div class="email-help" id="email-help" data-i18n-skip></div>
         <div class="rules">
           <label>Send from (email account)
             <input name="user" type="text" autocomplete="off" placeholder="you@gmail.com">
@@ -554,13 +555,23 @@
       other: { host: '', port: 465, pass: 'Password', placeholder: 'info@massagecalgary.ca',
         help: 'For an address on your own domain (like info@massagecalgary.ca), use the <b>outgoing mail (SMTP)</b> details your email or web host gives you: usually the full email address and its password, server <i>mail.yourdomain</i>, port 465.' },
     };
+    // The same help in Russian (light mode); the rest of the page is translated by /i18n.js.
+    const HELP_RU = {
+      brevo: '<b>Как подключить Brevo</b> (бесплатный аккаунт на <a href="https://www.brevo.com" target="_blank" rel="noopener">brevo.com</a>):<ol><li><b>Подтвердите адрес:</b> в Brevo нажмите на своё имя (справа вверху) → <b>Senders, Domains &amp; Dedicated IPs</b> → <b>Senders</b> → <b>Add sender</b>, введите свой адрес и перейдите по ссылке из письма Brevo.</li><li><b>Создайте API-ключ:</b> нажмите на своё имя → <b>SMTP &amp; API</b> → вкладка <b>API Keys</b> → <b>Generate a new API key</b>, назовите его «Website» и скопируйте (он начинается с <i>xkeysib-</i>).</li><li><b>Разрешите доступ сайту:</b> нажмите на своё имя → <b>Security</b> → <b>Authorised IPs</b> и отключите блокировку неизвестных IP-адресов (если такой пункт есть).</li><li>Заполните поля ниже и нажмите «Сохранить».</li></ol>',
+      gmail: '<b>Для Gmail нужен пароль приложения</b> (обычный пароль не подойдёт):<ol><li>Войдите в аккаунт Gmail и включите <a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" rel="noopener">двухэтапную проверку</a>.</li><li>Откройте <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Пароли приложений</a>, введите «Website» и нажмите «Создать».</li><li>Скопируйте 16-значный пароль в поле ниже.</li></ol>',
+      outlook: 'Укажите адрес и пароль Outlook / Hotmail (или <b>пароль приложения</b>, если включена двухэтапная проверка).<br><b>Внимание:</b> Microsoft отключает вход по паролю для отправки писем с сайтов, поэтому подключение может не сработать. Если тест не пройдёт, проще всего <b>отправлять через бесплатный аккаунт Gmail</b> (выберите Gmail выше): письма всё равно могут приходить <i>на</i> ваш адрес Microsoft.',
+      m365: 'Укажите полный адрес и его пароль. Возможно, администратору Microsoft 365 нужно включить <b>Authenticated SMTP</b> для этого ящика.<br><b>Внимание:</b> Microsoft отключает вход по паролю для отправки писем с сайтов, поэтому подключение может не сработать. Если тест не пройдёт, проще всего <b>отправлять через бесплатный аккаунт Gmail</b> (выберите Gmail выше): письма всё равно могут приходить <i>на</i> ваш адрес Microsoft.',
+      yahoo: '<b>Для Yahoo нужен пароль приложения:</b> в настройках безопасности Yahoo выберите «Generate app password» и вставьте его ниже.',
+      icloud: '<b>Для iCloud нужен пароль для приложения:</b> создайте его на account.apple.com в разделе «Вход и безопасность» и вставьте ниже.',
+      other: 'Для адреса на вашем домене (например, info@massagecalgary.ca) используйте настройки <b>исходящей почты (SMTP)</b> от вашего почтового сервиса или хостинга: обычно это полный адрес и его пароль, сервер <i>mail.вашдомен</i>, порт 465.',
+    };
     const providerFor = (host) => Object.keys(PROVIDERS).find((k) => k !== 'other' && PROVIDERS[k].host === host) || 'other';
     const userLabel = $('#email-form input[name=user]').closest('label').firstChild;
     const ef = $('#email-form');
     let emailSaved = null;
     function showProvider() {
       const pr = PROVIDERS[ef.provider.value];
-      $('#email-help').innerHTML = pr.help;
+      $('#email-help').innerHTML = window.FenixI18n && FenixI18n.lang === 'ru' ? HELP_RU[ef.provider.value] : pr.help;
       $('#pass-label').textContent = pr.pass;
       userLabel.textContent = pr.user || 'Send from (email account)';
       ef.pass.type = ef.provider.value === 'brevo' ? 'text' : 'password';
@@ -583,6 +594,7 @@
       ef.pass.placeholder = e.hasPassword ? 'Saved (leave blank to keep it)' : (ef.provider.value === 'brevo' ? 'xkeysib-…' : '');
     }
     ef.provider.addEventListener('change', showProvider);
+    document.addEventListener('fenix:lang', () => { $('#email-help').innerHTML = FenixI18n.lang === 'ru' ? HELP_RU[ef.provider.value] : PROVIDERS[ef.provider.value].help; });
     async function loadEmail() { try { renderEmail(await api('/api/admin/email')); } catch (err) { $('#email-state').textContent = err.message; } }
     $('#email-save').addEventListener('click', async () => {
       const msg = $('#email-form-msg'), btn = $('#email-save');
@@ -626,5 +638,6 @@
     }));
 
   </script>
+  <script src="/i18n.js"></script>
 </body>
 </html>

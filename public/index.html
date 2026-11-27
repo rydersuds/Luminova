@@ -7,11 +7,12 @@
   <meta name="description" content="Registered massage therapy in McKenzie Towne, Calgary. Therapeutic, deep tissue, sports, hot stone, bamboo, reflexology and cupping massage with Felix Etin, RMT. Book online.">
   <meta name="theme-color" content="#1b2a45">
   <script>
-    // Apply a saved (or system) dark preference before first paint.
-    try {
-      var t = localStorage.getItem('theme');
-      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark';
-    } catch (e) { /* storage unavailable */ }
+    // Dark mode (English) unless this visitor chose light mode (Russian), applied before first paint.
+    // In light mode the page stays hidden until /i18n.js has translated it, so English never flashes.
+    var t = null;
+    try { t = localStorage.getItem('theme'); } catch (e) { /* storage unavailable */ }
+    if (t !== 'light') document.documentElement.dataset.theme = 'dark';
+    else { document.documentElement.classList.add('i18n-pending'); setTimeout(function () { document.documentElement.classList.remove('i18n-pending'); }, 2500); }
   </script>
   <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="styles.css">
@@ -484,5 +485,6 @@
 
   <script src="script.js"></script>
   <script src="booking.js"></script>
+  <script src="i18n.js"></script>
 </body>
 </html>
