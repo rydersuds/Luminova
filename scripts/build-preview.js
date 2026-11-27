@@ -326,11 +326,11 @@ const realBooker = html.slice(start, end).replace('<div class="booker" data-book
 html = html.slice(0, start) + realBooker + booker + html.slice(end);
 
 html = html
-  .replace('<link rel="stylesheet" href="fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
-  .replace('<link rel="stylesheet" href="styles.css">', () => `<style>\n${read('styles.css')}\n${css}\n${mapCss}</style>`)
-  .replace('<script src="script.js"></script>', () => `<script>window.STUDIO_HOURS = ${JSON.stringify(config.hours)};</script>\n<!--DEMO-BACKEND-->\n<script>\n${inline(read('script.js'))}\n</script>`)
-  .replace('<script src="booking.js"></script>', () => `<script>\n${inline(read('booking.js'))}\n</script>`)
-  .replace('<script src="i18n.js"></script>', () => `<script>\n${inline(read('i18n.js'))}\n</script>`)
+  .replace('<link rel="stylesheet" href="fonts/fonts.css?v=2611">', () => `<style>\n${fontCss}\n</style>`)
+  .replace('<link rel="stylesheet" href="styles.css?v=2611">', () => `<style>\n${read('styles.css')}\n${css}\n${mapCss}</style>`)
+  .replace('<script src="script.js?v=2611"></script>', () => `<script>window.STUDIO_HOURS = ${JSON.stringify(config.hours)};</script>\n<!--DEMO-BACKEND-->\n<script>\n${inline(read('script.js'))}\n</script>`)
+  .replace('<script src="booking.js?v=2611"></script>', () => `<script>\n${inline(read('booking.js'))}\n</script>`)
+  .replace('<script src="i18n.js?v=2611"></script>', () => `<script>\n${inline(read('i18n.js'))}\n</script>`)
   // Map and directions point at Google; the preview shows a drawn map instead.
   .replace(/<div class="map">[\s\S]*?<\/div>/, () => mapSvg)
   .replace(/\s*<a class="btn btn-outline-navy" href="https:\/\/www\.google\.com\/maps\/dir\/[^"]*">Get directions<\/a>/, '')
@@ -405,17 +405,17 @@ const blocksHtml = `<thead><tr><th>Date</th><th>Time</th><th>Reason</th><th></th
 let admin = fs.readFileSync(path.join(__dirname, '..', 'admin', 'index.html'), 'utf8');
 // Admin pages share the website's stylesheet; inline it (plus fonts) and drop scripts.
 const sitePage = (html) => inlineImages(html)
-  .replace('<script src="/i18n.js"></script>', '')
+  .replace('<script src="/i18n.js?v=2611"></script>', '')
   .replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, '')
-  .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
-  .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
+  .replace('<link rel="stylesheet" href="/fonts/fonts.css?v=2611">', () => `<style>\n${fontCss}\n</style>`)
+  .replace('<link rel="stylesheet" href="/styles.css?v=2611">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
   .replace(/<script>[\s\S]*?<\/script>/g, '')
   .replace(/href="\/"/g, 'href="#"');
 const sitePageKeepScripts = (page) => inlineImages(page)
-  .replace('<script src="/i18n.js"></script>', () => `<script>\n${inline(read('i18n.js'))}\n</script>`)
+  .replace('<script src="/i18n.js?v=2611"></script>', () => `<script>\n${inline(read('i18n.js'))}\n</script>`)
   .replace(/\s*<!--FILE-NOTICE-->[\s\S]*?<!--\/FILE-NOTICE-->/, '')
-  .replace('<link rel="stylesheet" href="/fonts/fonts.css">', () => `<style>\n${fontCss}\n</style>`)
-  .replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
+  .replace('<link rel="stylesheet" href="/fonts/fonts.css?v=2611">', () => `<style>\n${fontCss}\n</style>`)
+  .replace('<link rel="stylesheet" href="/styles.css?v=2611">', () => `<style>\n${read('styles.css')}\n${mapCss}</style>`)
   .replace(/href="\/"/g, 'href="#"');
 admin = sitePageKeepScripts(admin)
   // Help links in the Emails tab point to account pages; the offline preview shows them as plain text.

@@ -324,10 +324,18 @@ const MIME = {
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
   '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8',
 };
-function serveFile(res, file) {
+// Pages, styles and scripts are checked with the server on every visit ("no-cache"), so an update
+// shows up straight away instead of a browser mixing an old stylesheet with a new page. The ETag
+// means an unchanged file is answered with a tiny 304. Images and fonts can be kept for a day.
+function serveFile(res, file, req) {
   fs.readFile(file, (err, data) => {
     if (err) return send(res, 404, 'Not found');
-    send(res, 200, data, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+    const ext = path.extname(file).toLowerCase();
+    const etag = '"' + crypto.createHash('sha1').update(data).digest('base64url').slice(0, 20) + '"';
+    const cache = ['.html', '.css', '.js', '.json', '.txt'].includes(ext) ? 'no-cache' : 'public, max-age=86400';
+    const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': cache, ETag: etag };
+    if (req && req.headers['if-none-match'] === etag) return send(res, 304, '', headers);
+    send(res, 200, data, headers);
   });
 }
 
@@ -654,7 +662,7 @@ async function handle(req, res) {
     // Just signed in but the cookie didn't come back: say so instead of showing a blank login.
     if (ADMIN_PASSWORD && !isAdmin(req) && url.searchParams.has('signedin')) return redirect(res, '/admin/login?nocookie=1');
     if (!requireAdmin(req, res, { page: true })) return;
-    return serveFile(res, path.join(__dirname, 'admin', 'index.html'));
+    return serveFile(res, path.join(__dirname, 'admin', 'index.html'), req);
   }
 
   if (p.startsWith('/api/admin/')) {
@@ -755,7 +763,7 @@ async function handle(req, res) {
   const rel = p === '/' ? 'index.html' : decodeURIComponent(p).replace(/^\/+/, '');
   const file = path.resolve(PUBLIC_DIR, rel);
   if (!file.startsWith(PUBLIC_DIR + path.sep)) return send(res, 404, 'Not found');
-  return serveFile(res, file);
+  return serveFile(res, file, req);
 }
 
 const server = http.createServer((req, res) => {
