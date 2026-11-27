@@ -227,7 +227,7 @@ function write(name, content) {
 }
 // Photos and logos go into the previews as data URIs, so they work as single offline files.
 function inlineImages(page) {
-  return page.replace(/(src|href)="\/?images\/([\w.-]+)"/g, (m, attr, file) => {
+  return page.replace(/(src|href)="\/?images\/((?:[\w-]+\/)?[\w.-]+)"/g, (m, attr, file) => {
     const type = { '.jpg': 'image/jpeg', '.png': 'image/png' }[path.extname(file)];
     return `${attr}="data:${type};base64,${fs.readFileSync(path.join(pub, 'images', file)).toString('base64')}"`;
   });
